@@ -1,0 +1,835 @@
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+
+local Window = WindUI:CreateWindow({
+    Title = "RaZui Hub",
+    Folder = "MySuperHub",
+    Size = UDim2.fromOffset(580, 460),
+    MinSize = Vector2.new(560, 350),
+    MaxSize = Vector2.new(850, 560),
+    Transparent = true,
+    Theme = "Dark",
+    Resizable = true,
+    SideBarWidth = 150,
+    BackgroundImageTransparency = 0.42,
+    HideSearchBar = true,
+    ScrollBarEnabled = false,
+})
+
+Window:SetToggleKey(Enum.KeyCode.K)
+Window:EditOpenButton({
+    Title = "Open UI",
+    CornerRadius = UDim.new(0,16),
+    StrokeThickness = 2,
+    Color = ColorSequence.new(Color3.fromHex("FF0F7B"), Color3.fromHex("F89B29")),
+    OnlyMobile = false,
+    Enabled = true,
+    Draggable = true,
+})
+
+local FarmTab = Window:Tab({Title = "Farm"})
+FarmTab:Select()
+
+local Section = FarmTab:Section({ 
+    Title = "Farm Mobs",
+})
+-- Store selected NPC types (initially selecting the first option listed)
+_G.SelectedNPCs = { "Zombie" }
+
+-- Function to extract base name (remove level bracket)
+local function GetBaseName(displayName)
+    if not displayName then return "" end
+    -- Remove everything from " (Level:" onwards
+    return displayName:match("^(.-)%s*%(Level:") or displayName
+end
+
+-- Dropdown for MULTI-NPC selection
+local Dropdown = FarmTab:Dropdown({
+    Title = "Select NPCs to Farm",
+    Desc = "Choose which NPC types to auto-farm (allows multiple selection)",
+    Values = {
+        "Zombie",
+        "Delver Zombie",
+        "Brute Zombie",
+        -- Add more NPC names here
+    },
+    Value = { "Zombie" }, -- Default must be a table
+    Multi = true,
+    AllowNone = true,
+    Callback = function(optionsTable) 
+        -- Ensure optionsTable is not nil or empty. If AllowNone is true, it might be {}.
+        _G.SelectedNPCs = optionsTable or {}
+        print("Now farming targets: " .. table.concat(_G.SelectedNPCs, ", "))
+    end
+})
+
+local Toggle = FarmTab:Toggle({
+    Title = "Auto Farm NPCs",
+    Desc = "Teleports, Lying Flat, Auto-Equip Weapon, Attacks",
+    Value = false,
+    Callback = function(state)
+        _G.AutoFarm = state
+        local lp = game.Players.LocalPlayer
+        
+        local currentTarget = nil
+        
+        local function StopFloating()
+            if lp.Character then
+                local hum = lp.Character:FindFirstChild("Humanoid")
+                local root = lp.Character:FindFirstChild("HumanoidRootPart")
+                
+                if hum then 
+                    hum.PlatformStand = false 
+                end
+                
+                if root then
+                    local oldBV = root:FindFirstChild("FloatForce")
+                    if oldBV then oldBV:Destroy() end
+                end
+            end
+        end
+        
+        -- Helper function to check if an item exists in the selected table
+        local function IsSelected(npcName)
+            if not _G.SelectedNPCs or #_G.SelectedNPCs == 0 then return false end
+            for _, selectedName in ipairs(_G.SelectedNPCs) do
+                if selectedName == npcName then
+                    return true
+                end
+            end
+            return false
+        end
+
+        if not state then
+            StopFloating()
+            currentTarget = nil
+        else
+            task.spawn(function()
+                while _G.AutoFarm do
+                    
+                    -- If no targets are selected, wait
+                    if #_G.SelectedNPCs == 0 then
+                        StopFloating()
+                        task.wait(1)
+                        continue
+                    end
+                    
+                    local targetFound = false
+                    
+                    if workspace:FindFirstChild("Living") then
+                        for _, v in pairs(workspace.Living:GetChildren()) do
+                            if not _G.AutoFarm then break end
+                            
+                            if v:GetAttribute("IsNpc") == true then
+                                local enemyHum = v:FindFirstChild("Humanoid")
+                                local enemyRoot = v:FindFirstChild("HumanoidRootPart")
+                                
+                                if enemyHum and enemyRoot and enemyHum.Health > 0 then
+                                    
+                                    -- CHECK SELECTION
+                                    local npcBaseName = GetBaseName(enemyHum.DisplayName)
+                                    
+                                    if IsSelected(npcBaseName) then
+                                        targetFound = true
+                                        currentTarget = v
+                                        
+                                        -- FIGHT LOOP
+                                        while _G.AutoFarm and v and enemyHum and enemyHum.Health > 0 do
+                                            -- Check if we unselected this type during the fight
+                                            if not IsSelected(npcBaseName) then
+                                                print("NPC type unselected, switching target...")
+                                                break
+                                            end
+
+                                            local char = lp.Character
+                                            if not char then
+                                                char = lp.CharacterAdded:Wait()
+                                            end
+
+                                            local myHum  = char:FindFirstChild("Humanoid")
+                                            local myRoot = char:FindFirstChild("HumanoidRootPart")
+
+                                            if not myHum or not myRoot then
+                                                task.wait(0.1)
+                                                continue
+                                            end
+
+                                            if myHum.Health <= 0 then
+                                                task.wait(0.5)
+                                                continue
+                                            end
+
+                                            StopFloating()
+
+                                            -- SETUP PHYSICS
+                                            myHum.PlatformStand = true
+                                            
+                                            local bv = Instance.new("BodyVelocity")
+                                            bv.Name = "FloatForce"
+                                            bv.Velocity = Vector3.new(0,0,0)
+                                            bv.MaxForce = Vector3.new(100000, 100000, 100000)
+                                            bv.Parent = myRoot
+
+                                            -- AUTO EQUIP
+                                            if not char:FindFirstChildWhichIsA("Tool") then
+                                                local backpack = lp.Backpack
+                                                local weaponToEquip = backpack:FindFirstChild("Weapon") or backpack:FindFirstChildWhichIsA("Tool")
+                                                
+                                                if weaponToEquip then
+                                                    myHum:EquipTool(weaponToEquip)
+                                                    task.wait(0.1)
+                                                end
+                                            end
+
+                                            -- TELEPORT & ATTACK
+                                            local targetPos = enemyRoot.Position
+                                            local abovePos = targetPos + Vector3.new(0, 7, 0)
+                                            myRoot.CFrame = CFrame.lookAt(abovePos, targetPos)
+                                            
+                                            local args = { "Weapon" }
+                                            pcall(function()
+                                                game:GetService("ReplicatedStorage")
+                                                    :WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Knit"):WaitForChild("Services"):WaitForChild("ToolService"):WaitForChild("RF"):WaitForChild("ToolActivated")
+                                                    :InvokeServer(unpack(args))
+                                            end)
+
+                                            task.wait(0.1)
+                                        end
+                                        
+                                        currentTarget = nil
+                                        StopFloating()
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    
+                    if not targetFound then
+                        StopFloating()
+                        currentTarget = nil
+                        task.wait(1)
+                    end
+                    task.wait()
+                end
+                StopFloating()
+            end)
+        end
+    end
+})
+
+local Section = FarmTab:Section({ 
+    Title = "Farm Caves",
+})
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ToolService = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Knit"):WaitForChild("Services"):WaitForChild("ToolService"):WaitForChild("RF"):WaitForChild("ToolActivated")
+
+local player = Players.LocalPlayer
+
+-- Data for Cave Farming
+local caves = {
+    ["Start Cave"] = { folder = "Island1CaveStart", ores = {"Pebble"} },
+    ["Middle Cave"] = { folder = "Island1CaveMid", ores = {"Rock"} },
+    ["Deep Cave"] =  { folder = "Island1CaveDeep", ores = {"Rock", "Boulder"} },
+    ["Roof"] =       { folder = "Roof", ores = {"Lucky Block"} }
+}
+
+-- Data for Ore Farming (Global)
+local allOres = {"Pebble", "Rock", "Boulder", "Lucky Block"}
+
+--------------------------------------------------------------------------------
+-- HELPER FUNCTIONS
+--------------------------------------------------------------------------------
+
+-- Find the part inside the model that actually holds Health attributes
+local function getHealthPart(model)
+    if not model then return nil end
+    for _, child in ipairs(model:GetChildren()) do
+        if child:GetAttribute("Health") then
+            return child
+        end
+    end
+    return nil
+end
+
+-- Check if rock is alive (Health > 0)
+local function isRockAlive(model)
+    if not model or not model.Parent then return false end
+    
+    local part = getHealthPart(model)
+    if part then
+        local h = part:GetAttribute("Health")
+        if h and h <= 0 then
+            return false
+        end
+        return true
+    end
+    return false
+end
+
+-- Check if rock is untouched (Health == MaxHealth)
+local function isRockFresh(model)
+    if not model then return false end
+
+    local part = getHealthPart(model)
+    if part then
+        local h  = part:GetAttribute("Health")
+        local mh = part:GetAttribute("MaxHealth")
+        if h and mh and h < mh then
+            return false -- already damaged
+        end
+        return true
+    end
+    return false
+end
+
+local function hasOres(model, oreList)
+    if not model or not model.Parent then return false end
+    for _, name in ipairs(oreList) do
+        -- Check model name OR child with that name
+        if model.Name == name or model:FindFirstChild(name) then
+            return true
+        end
+    end
+    return false
+end
+
+-- Search a SPECIFIC folder (one cave)
+local function findValidRock(folder, oreList)
+    if not folder then return nil end
+    local children = folder:GetChildren()
+    
+    -- Shuffle to randomize
+    for i = #children, 2, -1 do
+        local j = math.random(i)
+        children[i], children[j] = children[j], children[i]
+    end
+
+    for _, model in ipairs(children) do
+        if hasOres(model, oreList) and isRockAlive(model) and isRockFresh(model) then
+            return model
+        end
+    end
+    return nil
+end
+
+-- Search ALL cave folders in workspace.Rocks for a single ore type
+local function findGlobalRock(targetOreName)
+    local rocksFolder = workspace:FindFirstChild("Rocks")
+    if not rocksFolder then return nil end
+    
+    local allCaveFolders = rocksFolder:GetChildren()
+    
+    -- Shuffle cave folders
+    for i = #allCaveFolders, 2, -1 do
+        local j = math.random(i)
+        allCaveFolders[i], allCaveFolders[j] = allCaveFolders[j], allCaveFolders[i]
+    end
+    
+    for _, folder in ipairs(allCaveFolders) do
+        local target = findValidRock(folder, {targetOreName})
+        if target then
+            return target
+        end
+    end
+    return nil
+end
+
+--------------------------------------------------------------------------------
+-- MINING LOOP
+--------------------------------------------------------------------------------
+
+local function tpToRock(hrp, rock)
+    if not hrp or not rock then return end
+    local pivot = rock:GetPivot()
+    -- Slight offset in front of rock; no velocity reset spam
+    hrp.CFrame = pivot * CFrame.new(0, 0, 4)
+end
+
+local function startMiningLoop(modeFlagName)
+    spawn(function()
+        while _G[modeFlagName] do
+            task.wait()
+
+            local char = player.Character
+            if not char then
+                task.wait(1)
+                continue
+            end
+
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            local hum = char:FindFirstChild("Humanoid")
+            if not hrp or not hum or hum.Health <= 0 then
+                task.wait(1)
+                continue
+            end
+
+            -- Equip pickaxe
+            local equippedTool = char:FindFirstChild("Pickaxe")
+            if not equippedTool then
+                local backpack = player:FindFirstChild("Backpack")
+                if backpack then
+                    local pickaxe = backpack:FindFirstChild("Pickaxe")
+                    if pickaxe then
+                        hum:EquipTool(pickaxe)
+                    end
+                end
+            end
+
+            -- Validate current target
+            if _G.TargetRock then
+                if not _G.TargetRock.Parent or not isRockAlive(_G.TargetRock) then
+                    _G.TargetRock = nil
+                end
+            end
+
+            -- Find new target
+            if not _G.TargetRock then
+                if modeFlagName == "AutoCaveEnabled" then
+                    local currentCaveName = _G.SelectedCave or "Start Cave"
+                    local caveData = caves[currentCaveName]
+                    local rocksFolder = workspace:FindFirstChild("Rocks")
+                    local caveFolder = rocksFolder and rocksFolder:FindFirstChild(caveData.folder)
+                    if caveFolder then
+                        _G.TargetRock = findValidRock(caveFolder, caveData.ores)
+                    end
+                elseif modeFlagName == "AutoOreEnabled" then
+                    local oreName = _G.SelectedGlobalOre or "Pebble"
+                    _G.TargetRock = findGlobalRock(oreName)
+                end
+
+                -- Initial teleport to new rock
+                if _G.TargetRock then
+                    tpToRock(hrp, _G.TargetRock)
+                    task.wait(0.05)
+                end
+            end
+
+            -- Mine current target
+            if _G.TargetRock then
+                local rock = _G.TargetRock
+                local targetPos = rock:GetPivot().Position
+                local myPos = hrp.Position
+                local distance = (targetPos - myPos).Magnitude
+
+                -- Only teleport if we drift too far
+                if distance > 12 then
+                    tpToRock(hrp, rock)
+                end
+
+                -- Call the tool once per loop (non‑blocking)
+                task.spawn(function()
+                    pcall(function()
+                        ToolService:InvokeServer("Pickaxe")
+                    end)
+                end)
+
+                -- Check if rock died
+                if not isRockAlive(rock) then
+                    _G.TargetRock = nil
+                end
+
+                task.wait(0.1)
+            else
+                task.wait(0.2)
+            end
+        end
+    end)
+end
+
+--------------------------------------------------------------------------------
+-- UI SETUP
+--------------------------------------------------------------------------------
+
+-- [[ CAVE FARM ]] --
+FarmTab:Dropdown({
+    Title = "Select Cave",
+    Desc = "Choose specific cave.",
+    Values = { "Start Cave", "Middle Cave", "Deep Cave", "Roof" },
+    Value = "Start Cave",
+    Callback = function(option)
+        _G.SelectedCave = option
+        _G.TargetRock = nil
+    end
+})
+
+FarmTab:Toggle({
+    Title = "Auto Mine Cave",
+    Desc = "Farms only the selected cave",
+    Callback = function(state)
+        _G.AutoCaveEnabled = state
+        _G.AutoOreEnabled = false -- avoid both modes at once
+        _G.TargetRock = nil
+
+        if state then
+            startMiningLoop("AutoCaveEnabled")
+        end
+    end
+})
+
+-- [[ GLOBAL ORE FARM ]] --
+local Section = FarmTab:Section({ 
+    Title = "Farm Rocks",
+})
+
+FarmTab:Dropdown({
+    Title = "Select Rock Type",
+    Values = allOres,
+    Value = "Pebble",
+    Callback = function(option)
+        _G.SelectedGlobalOre = option
+        _G.TargetRock = nil
+    end
+})
+
+FarmTab:Toggle({
+    Title = "Auto Mine Ore",
+    Desc = "Farms ore from any cave",
+    Callback = function(state)
+        _G.AutoOreEnabled = state
+        _G.AutoCaveEnabled = false -- avoid both modes at once
+        _G.TargetRock = nil
+
+        if state then
+            startMiningLoop("AutoOreEnabled")
+        end
+    end
+})
+
+local SellTab = Window:Tab({Title = "Sell Ores"})
+
+-- Variable to store the delay time (Default 5 seconds)
+local sellDelay = 5
+local autoSellEnabled = false
+local selectedItems = {}
+
+-- 1. Button to Interact
+SellTab:Button({
+    Title = "Interact with Greedy Cey",
+    Desc = "If sell ores not working tap this button to start conversation and then it will work",
+    Locked = false,
+    Callback = function()
+        local args = {
+            workspace:WaitForChild("Proximity"):WaitForChild("Greedy Cey")
+        }
+
+        game:GetService("ReplicatedStorage")
+            :WaitForChild("Shared")
+            :WaitForChild("Packages")
+            :WaitForChild("Knit")
+            :WaitForChild("Services")
+            :WaitForChild("ProximityService")
+            :WaitForChild("RF")
+            :WaitForChild("Dialogue")
+            :InvokeServer(unpack(args))
+    end
+})
+
+-- 2. Dropdown to select items
+local items = {
+    "Stone","Sand Stone","Copper","Iron","Tin","Silver","Gold",
+    "Mushroomite","Platinum","Bananite","Cardboardite","Aite","Poopite"
+}
+
+SellTab:Dropdown({
+    Title = "Select Items to Sell",
+    Desc = "Choose which items to autosell",
+    Values = items,
+    Value = {},
+    Multi = true,
+    AllowNone = true,
+    Callback = function(option)
+        selectedItems = option
+    end
+})
+
+-- 3. Slider to control speed (Added this)
+SellTab:Slider({
+    Title = "Sell Delay (Seconds)",
+    Desc = "How long to wait between selling attempts",
+    Step = 1,
+    Value = {
+        Min = 1,
+        Max = 10,
+        Default = 5,
+    },
+    Callback = function(value)
+        sellDelay = value
+        print("Sell delay updated to: " .. value)
+    end
+})
+
+-- 4. Auto Sell Toggle
+SellTab:Toggle({
+    Title = "Auto Sell",
+    Desc = "Automatically sells selected items",
+    Value = false,
+    Callback = function(state)
+        autoSellEnabled = state
+        if state then
+            print("Auto Sell ENABLED")
+            -- Use task.spawn for better performance than spawn()
+            task.spawn(function()
+                while autoSellEnabled do
+                    if #selectedItems > 0 then
+                        -- Loop through selected items and sell them
+                        for _, itemName in ipairs(selectedItems) do
+                            if not autoSellEnabled then break end -- Stop immediately if toggled off
+                            
+                            local basket = { [itemName] = 1 }
+                            pcall(function()
+                                game:GetService("ReplicatedStorage")
+                                    .Shared.Packages.Knit.Services.DialogueService.RF.RunCommand
+                                    :InvokeServer("SellConfirm", { Basket = basket })
+                            end)
+                        end
+                    end
+                    -- Wait for the amount of time set on the slider
+                    task.wait(sellDelay)
+                end
+            end)
+        else
+            print("Auto Sell DISABLED")
+        end
+    end
+})
+
+local PotionTab = Window:Tab({Title = "Potion"})
+
+PotionTab:Section({ Title = "Buy Potion" })
+-- Variables to store your selection
+local selectedPotion = "HealthPotion1" -- Default value
+local buyAmount = 1 -- Default amount
+
+local potionList = {
+    "HealthPotion1", 
+    "MinerPotion1", 
+    "MovementSpeedPotion1", 
+    "LuckPotion1",
+    "AttackDamagePotion1"
+}
+
+-- 1. THE DROPDOWN (Select Potion)
+PotionTab:Dropdown({
+    Title = "Select Potion",
+    Desc = "Choose which potion to buy",
+    Values = potionList,
+    Value = "HealthPotion1",
+    Callback = function(option)
+        selectedPotion = option
+    end
+})
+
+-- 2. THE SLIDER (Select Amount)
+PotionTab:Slider({
+    Title = "Amount",
+    Desc = "Select quantity to buy",
+    Step = 1,
+    Value = {
+        Min = 1,
+        Max = 10, -- Change this number if you want to buy more at once
+        Default = 1,
+    },
+    Callback = function(value)
+        buyAmount = value
+        -- print("Amount set to: " .. buyAmount)
+    end
+})
+
+-- 3. THE BUTTON (Buy)
+PotionTab:Button({
+    Title = "Buy Potion",
+    Desc = "Purchase the selected amount",
+    Callback = function()
+        if selectedPotion and buyAmount > 0 then
+            local args = {
+                selectedPotion,
+                buyAmount
+            }
+            
+            pcall(function()
+                game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Knit"):WaitForChild("Services"):WaitForChild("ProximityService"):WaitForChild("RF"):WaitForChild("Purchase"):InvokeServer(unpack(args))
+                
+                Window:Notify({
+                    Title = "Purchased!",
+                    Content = "Bought " .. buyAmount .. "x " .. selectedPotion,
+                    Duration = 2
+                })
+            end)
+        end
+    end
+})
+
+PotionTab:Section({ Title = "Use Potion" })
+
+--// Remote reference
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ToolActivatedRF = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Knit"):WaitForChild("Services"):WaitForChild("ToolService"):WaitForChild("RF"):WaitForChild("ToolActivated")
+
+-- Pretty name -> real argument the server expects
+local NameMap = {
+    ["Miner Potion 1"] = "MinerPotion1",
+    ["Luck Potion 1"] = "LuckPotion1",
+    ["Health Potion 1"] = "HealthPotion1",
+    ["Damage Potion 1"] = "AttackDamagePotion1",
+    ["Speed Potion 1"] = "MovementSpeedPotion1",
+}
+
+-- What the user currently has selected (display name)
+local selectedDisplay = "Health Potion"
+
+local Dropdown = PotionTab:Dropdown({
+    Title = "Select Item",
+    Desc = "Choose which item to activate",
+    Values = { "Miner Potion 1", "Luck Potion 1", "Health Potion 1", "Damage Potion 1", "Speed Potion 1" },
+    Value = selectedDisplay,
+    Callback = function(option)
+        selectedDisplay = option
+        print("Selected (display):", option, "-> (real):", NameMap[option])
+    end
+})
+
+local Button = PotionTab:Button({
+    Title = "Use Selected Item",
+    Desc = "Activates the selected item",
+    Locked = false,
+    Callback = function()
+        local realName = NameMap[selectedDisplay] -- e.g. "HealthPotion1"
+        if not realName then
+            warn("No mapping found for option: " .. tostring(selectedDisplay))
+            return
+        end
+
+        -- You can pass it directly; no need for args/unpack with a single value
+        ToolActivatedRF:InvokeServer(realName)
+        print("Invoked ToolActivated with:", realName)
+    end
+})
+
+-- Pastes Cframe of the player standing spot in consol(f9)
+-- print(([[CFrame.new(%.7f, %.7f, %.7f, %.7f, %.7f, %.7f, %.7f, %.7f, %.7f, %.7f, %.7f, %.7f)]]):format(game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame:GetComponents()))
+
+-- ==================== TELEPORT TAB ====================
+local TeleportTab = Window:Tab({Title = "Teleport"})
+
+local TeleportLocations = {
+    ["Spawn"] = CFrame.new(-220.615, 37.528, 173.567, 0.996, 0, 0.087, 0, 1, 0, -0.087, 0, 0.996),
+    ["Enhancer"] = CFrame.new(-259.869, 19.756, 33.584, 1, 0, 0, 0, 1, 0, -0, 0, 1),
+    ["Rune Maker"] = CFrame.new(-270.793, 20.315, 138.565, -0.973, 0, 0.229, 0, 1, 0, -0.229, 0, -0.973),
+    ["Wizard"] = CFrame.new(-20.535, 80.884, -350.436, 0.924, 0, 0.382, 0, 1, 0, -0.382, 0, 0.924),
+}
+
+local SelectedLocation = "Spawn"
+
+-- THE TELEPORT FUNCTION
+-- Now accepts an optional 'char' argument to make it faster on respawn
+function TeleportToLocation(char)
+    local player = game.Players.LocalPlayer
+    local character = char or player.Character
+    
+    if not character then return end
+    
+    -- Wait specifically for the RootPart to exist so we don't error
+    local root = character:FindFirstChild("HumanoidRootPart") or character:WaitForChild("HumanoidRootPart", 3)
+    
+    if root and TeleportLocations[SelectedLocation] then
+        root.CFrame = TeleportLocations[SelectedLocation]
+    end
+end
+
+local Dropdown = TeleportTab:Dropdown({
+    Title = "Teleport Location",
+    Desc = "Choose where to teleport",
+    Values = {"Spawn", "Enhancer", "Rune Maker", "Wizard"},
+    Value = "Spawn",
+    Callback = function(option)
+        SelectedLocation = option
+        if _G.TeleportToggleActive then
+            TeleportToLocation()
+        end
+    end
+})
+
+local Toggle = TeleportTab:Toggle({
+    Title = "Auto Teleport",
+    Desc = "Changing option while toggle is on it will teleport to the selected option",
+    Value = false,
+    Callback = function(state)
+        _G.TeleportToggleActive = state
+        
+        if state then
+            TeleportToLocation()
+        end
+    end
+})
+
+-- ==================== FAST RESPAWN TELEPORT FIX ====================
+-- We store the connection to prevent duplicate events if you re-execute the script
+if _G.TeleportConnection then _G.TeleportConnection:Disconnect() end
+
+_G.TeleportConnection = game.Players.LocalPlayer.CharacterAdded:Connect(function(newChar)
+    if _G.TeleportToggleActive then
+        -- Wait for the RootPart to load (usually takes 0.1 seconds)
+        local hrp = newChar:WaitForChild("HumanoidRootPart", 10)
+        
+        -- Small wait to let Roblox physics initialize so you don't fall through the floor
+        task.wait(0.2) 
+        
+        -- Teleport immediately
+        TeleportToLocation(newChar)
+    end
+end)
+
+local Button = TeleportTab:Button({
+    Title = "Go to Forgotten Kingdom",
+    Desc = "Teleports using PortalService",
+    Locked = false,
+    Callback = function()
+        local args = {
+            "Forgotten Kingdom"
+        }
+        game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Knit"):WaitForChild("Services"):WaitForChild("PortalService"):WaitForChild("RF"):WaitForChild("TeleportToIsland"):InvokeServer(unpack(args))
+    end
+})
+
+local MSCTab = Window:Tab({Title = "MSC"})
+
+local antiAFKConnection = nil
+
+-- ==================== FIXED ANTI-AFK ====================
+local AntiAFKSection = MSCTab:Section({ Title = "Anti-AFK" })
+
+local function enableAntiAFK()
+    if antiAFKConnection then antiAFKConnection:Disconnect() end
+    local vu = game:GetService("VirtualUser")
+    antiAFKConnection = game:GetService("Players").LocalPlayer.Idled:Connect(function()
+        vu:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        task.wait(0.5)
+        vu:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+    end)
+    print("Anti-AFK ENABLED")
+end
+
+local function disableAntiAFK()
+    if antiAFKConnection then
+        antiAFKConnection:Disconnect()
+        antiAFKConnection = nil
+    end
+    print("Anti-AFK DISABLED")
+end
+
+MSCTab:Toggle({
+    Title = "Anti-AFK",
+    Desc = "Prevents Roblox from kicking you for inactivity",
+    Value = true, -- Starts enabled
+    Callback = function(state)
+        if state then
+            enableAntiAFK()
+        else
+            disableAntiAFK()
+        end
+    end
+})
+
+-- Automatically enable it on script start since default is true
+enableAntiAFK()
