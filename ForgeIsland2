@@ -27,13 +27,22 @@ Window:EditOpenButton({
 })
 
 --------------------------------------------------------------------------------
--- SERVICES & UTILS (MOVEMENT SYSTEM)
+-- SERVICES & UTILS
 --------------------------------------------------------------------------------
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local GuiService = game:GetService("GuiService")
+local Workspace = game:GetService("Workspace")
+
 local lp = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+local Debris = Workspace:WaitForChild("Debris")
+local PlayerGui = lp:WaitForChild("PlayerGui")
+-- Attempt to get ForgeUI, might not exist yet if fresh spawn
+local ForgeUI = PlayerGui:WaitForChild("Forge", 5) 
 
 local MOVEMENT_SPEED = 65 
 local NoclipConnection = nil
@@ -345,7 +354,7 @@ local function MineLoop(flag, mode)
         if rock then
             local rockPivot = rock:GetPivot()
             -- Position: Under rock, looking up
-            local minePos = rockPivot * CFrame.new(0, -7, 0)
+            local minePos = rockPivot * CFrame.new(0, -6, 0)
             minePos = CFrame.lookAt(minePos.Position, rockPivot.Position)
 
             TweenTo(minePos)
@@ -435,6 +444,228 @@ FarmTab:Toggle({
              lp.Character.HumanoidRootPart.Anchored = false
         end
         if state then task.spawn(function() MineLoop("AutoOreEnabled", "Global") end) end
+    end
+})
+
+--------------------------------------------------------------------------------
+-- FORGE TAB (NEW)
+--------------------------------------------------------------------------------
+local ForgeTab = Window:Tab({Title = "Forge"})
+
+-- Forge Variables
+local AutoForgeEnabled = false
+local ForgeConnections = {}
+
+-- FORGE HELPER FUNCTIONS --
+
+-- Cleanup
+local function cleanupMouse()
+    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0) 
+    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+end
+
+-- 1. Hammer
+local function clickHammerButton(button)
+    local absPos = button.AbsolutePosition
+    local absSize = button.AbsoluteSize
+    local centerX = absPos.X + (absSize.X / 2)
+    local centerY = absPos.Y + (absSize.Y / 2) + GuiService:GetGuiInset().Y
+    
+    VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 1)
+    task.wait(0.01)
+    VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 1)
+end
+
+local function handleHammerNote(noteObject)
+    local innerFrame = noteObject:WaitForChild("Frame", 5)
+    if not innerFrame then return end
+    local circle = innerFrame:WaitForChild("Circle", 5)
+    local border = innerFrame:WaitForChild("Border", 5)
+    if not circle or not border then return end
+
+    local targetSize = border.Size.X.Scale 
+    local con
+    con = RunService.RenderStepped:Connect(function()
+        if not AutoForgeEnabled then 
+            if con then con:Disconnect() end 
+            return 
+        end
+        if not noteObject or not noteObject.Parent or not circle or not circle.Parent then
+            if con then con:Disconnect() end
+            return
+        end
+        if circle.Size.X.Scale <= (targetSize + 0.02) then
+            if con then con:Disconnect() end
+            clickHammerButton(noteObject)
+        end
+    end)
+end
+
+-- 2. Melt (Fast)
+local isMelting = false
+local function runMeltLoop()
+    if isMelting then return end
+    isMelting = true
+    
+    if not ForgeUI then ForgeUI = lp.PlayerGui:FindFirstChild("Forge") end
+    if not ForgeUI or not ForgeUI:FindFirstChild("MeltMinigame") then 
+        isMelting = false
+        return 
+    end
+
+    local MeltMinigame = ForgeUI.MeltMinigame
+    local Heater = MeltMinigame:WaitForChild("Heater")
+    local Handle = Heater:WaitForChild("Top")
+    local ProgressBar = MeltMinigame:WaitForChild("Bar")
+    
+    task.wait(0.3)
+
+    while AutoForgeEnabled and MeltMinigame.Visible and ProgressBar.Area.AbsoluteSize.Y < (ProgressBar.Frame.AbsoluteSize.Y * 0.99) do
+        local handlePos = Handle.AbsolutePosition
+        local handleSize = Handle.AbsoluteSize
+        local heaterSize = Heater.AbsoluteSize
+        local insetY = GuiService:GetGuiInset().Y
+
+        local startX = handlePos.X + (handleSize.X / 2)
+        local startY = handlePos.Y + (handleSize.Y / 2) + insetY
+        local endY = startY + (heaterSize.Y * 0.7) 
+
+        VirtualInputManager:SendMouseMoveEvent(startX, startY, game)
+        VirtualInputManager:SendMouseButtonEvent(startX, startY, 0, true, game, 1)
+        
+        local steps = 2 
+        for i = 1, steps do
+            local lerpY = startY + ((endY - startY) * (i / steps))
+            VirtualInputManager:SendMouseMoveEvent(startX, lerpY, game)
+            RunService.RenderStepped:Wait()
+        end
+
+        VirtualInputManager:SendMouseButtonEvent(startX, endY, 0, false, game, 1)
+        RunService.RenderStepped:Wait()
+    end
+    isMelting = false
+end
+
+-- 3. Pour
+local isPouring = false
+local function runPourLoop()
+    if isPouring then return end
+    isPouring = true
+
+    if not ForgeUI then ForgeUI = lp.PlayerGui:FindFirstChild("Forge") end
+    if not ForgeUI or not ForgeUI:FindFirstChild("PourMinigame") then 
+        isPouring = false
+        return 
+    end
+
+    local PourMinigame = ForgeUI.PourMinigame
+    local PourArea = PourMinigame.Frame.Area
+    local PourLine = PourMinigame.Frame.Line
+
+    while AutoForgeEnabled and isPouring and PourMinigame.Visible do
+        local areaCenterY = PourArea.AbsolutePosition.Y + (PourArea.AbsoluteSize.Y / 2)
+        local lineCenterY = PourLine.AbsolutePosition.Y + (PourLine.AbsoluteSize.Y / 2)
+        
+        if lineCenterY > areaCenterY then
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+        else
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+        end
+        RunService.RenderStepped:Wait()
+    end
+    cleanupMouse()
+    isPouring = false
+end
+
+-- 4. Mold
+local function clickMoldUntilGone(moldModel)
+    task.wait(0.2)
+    while AutoForgeEnabled and moldModel and moldModel.Parent do
+        local pivotCFrame = moldModel:GetPivot()
+        local targetPosition = pivotCFrame.Position
+        local vectorPos, onScreen = Camera:WorldToViewportPoint(targetPosition)
+        
+        if onScreen then
+            VirtualInputManager:SendMouseButtonEvent(vectorPos.X, vectorPos.Y, 0, true, game, 1)
+            task.wait(0.05)
+            VirtualInputManager:SendMouseButtonEvent(vectorPos.X, vectorPos.Y, 0, false, game, 1)
+        end
+        task.wait(0.1) 
+    end
+end
+
+ForgeTab:Section({ Title = "Auto Forge" })
+
+ForgeTab:Toggle({
+    Title = "Auto Forge Master",
+    Desc = "Auto Hammer, Melt, Pour & Mold",
+    Value = false,
+    Callback = function(state) 
+        AutoForgeEnabled = state
+        
+        -- Try to refresh reference just in case
+        if not ForgeUI then ForgeUI = lp.PlayerGui:FindFirstChild("Forge") end
+
+        if state and ForgeUI then
+            -- 1. Hammer Listener
+            if ForgeUI:FindFirstChild("HammerMinigame") then
+                local hammerC = ForgeUI.HammerMinigame.ChildAdded:Connect(function(child)
+                    if child.Name == "Frame" then handleHammerNote(child) end
+                end)
+                table.insert(ForgeConnections, hammerC)
+            end
+            
+            -- 2. Melt Listener
+            if ForgeUI:FindFirstChild("MeltMinigame") then
+                local meltC = ForgeUI.MeltMinigame:GetPropertyChangedSignal("Visible"):Connect(function()
+                    if ForgeUI.MeltMinigame.Visible then task.spawn(runMeltLoop) end
+                end)
+                table.insert(ForgeConnections, meltC)
+            end
+
+            -- 3. Pour Listener
+            if ForgeUI:FindFirstChild("PourMinigame") then
+                local pourC = ForgeUI.PourMinigame:GetPropertyChangedSignal("Visible"):Connect(function()
+                    if ForgeUI.PourMinigame.Visible then
+                        task.wait(0.5)
+                        if ForgeUI.PourMinigame.Visible and AutoForgeEnabled then 
+                            task.spawn(runPourLoop) 
+                        end
+                    else
+                        isPouring = false
+                    end
+                end)
+                table.insert(ForgeConnections, pourC)
+            end
+            
+            -- 4. Mold Listener
+            local moldC = Debris.ChildAdded:Connect(function(child)
+                if child.Name == "Mold" then clickMoldUntilGone(child) end
+            end)
+            table.insert(ForgeConnections, moldC)
+
+            -- Check Initial State (If enabled while already open)
+            if ForgeUI:FindFirstChild("MeltMinigame") and ForgeUI.MeltMinigame.Visible then task.spawn(runMeltLoop) end
+            if ForgeUI:FindFirstChild("PourMinigame") and ForgeUI.PourMinigame.Visible then 
+                task.wait(0.5)
+                if AutoForgeEnabled then task.spawn(runPourLoop) end
+            end
+            if Debris:FindFirstChild("Mold") then
+                task.spawn(function() clickMoldUntilGone(Debris.Mold) end)
+            end
+
+        else
+            -- Disconnect all events
+            for _, v in pairs(ForgeConnections) do
+                v:Disconnect()
+            end
+            ForgeConnections = {}
+            
+            -- Reset Flags
+            isMelting = false
+            isPouring = false
+            cleanupMouse()
+        end
     end
 })
 
