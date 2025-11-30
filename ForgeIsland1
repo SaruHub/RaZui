@@ -570,18 +570,30 @@ TeleportTab:Button({
 local MSCTab = Window:Tab({Title = "MSC"})
 
 local afkConn = nil
+
+local function setAntiAFK(state)
+    if state then
+        if afkConn then afkConn:Disconnect() end
+        afkConn = lp.Idled:Connect(function()
+            game:GetService("VirtualUser"):Button2Down(Vector2.zero, workspace.CurrentCamera.CFrame)
+            task.wait(0.2)
+            game:GetService("VirtualUser"):Button2Up(Vector2.zero, workspace.CurrentCamera.CFrame)
+        end)
+    else
+        if afkConn then 
+            afkConn:Disconnect() 
+            afkConn = nil
+        end
+    end
+end
+
+-- Initialize Anti-AFK on script load
+setAntiAFK(true)
+
 MSCTab:Toggle({
     Title = "Anti-AFK",
     Value = true,
     Callback = function(state)
-        if state then
-            afkConn = lp.Idled:Connect(function()
-                game:GetService("VirtualUser"):Button2Down(Vector2.zero, workspace.CurrentCamera.CFrame)
-                task.wait(0.2)
-                game:GetService("VirtualUser"):Button2Up(Vector2.zero, workspace.CurrentCamera.CFrame)
-            end)
-        else
-            if afkConn then afkConn:Disconnect() end
-        end
+        setAntiAFK(state)
     end
 })
