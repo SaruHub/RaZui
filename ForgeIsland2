@@ -36,6 +36,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local GuiService = game:GetService("GuiService")
 local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService") -- Added for PC/Mobile check
 
 local lp = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
@@ -99,7 +100,7 @@ local function ToggleFloat(state)
     end
 end
 
--- 3. DEATH FREEZE (Prevents Void Fall)
+-- 3. DEATH FREEZE
 local function ConnectDeathMonitor(char)
     local hum = char:WaitForChild("Humanoid", 10)
     if hum then
@@ -562,7 +563,7 @@ FarmTab:Toggle({
 })
 
 --------------------------------------------------------------------------------
--- FORGE, SELL, ETC
+-- FORGE, SELL, ETC (UNIVERSAL FIX)
 --------------------------------------------------------------------------------
 
 local ForgeTab = Window:Tab({Title = "Forge"})
@@ -574,13 +575,23 @@ local function cleanupMouse()
     VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
 end
 
+-- Universal Click Offset Helper
+local function getInsetY()
+    if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
+        return 0 -- Mobile usually has no inset offset in VIM
+    else
+        return GuiService:GetGuiInset().Y -- PC needs this
+    end
+end
+
 local function clickHammerButton(button)
     local absPos = button.AbsolutePosition
     local absSize = button.AbsoluteSize
     local centerX = absPos.X + (absSize.X / 2)
-    local centerY = absPos.Y + (absSize.Y / 2) + GuiService:GetGuiInset().Y
+    local centerY = absPos.Y + (absSize.Y / 2) + getInsetY()
+    
     VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 1)
-    task.wait(0.01)
+    task.wait(0.05) 
     VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 1)
 end
 
@@ -622,23 +633,30 @@ local function runMeltLoop()
     local Heater = MeltMinigame:WaitForChild("Heater")
     local Handle = Heater:WaitForChild("Top")
     local ProgressBar = MeltMinigame:WaitForChild("Bar")
+    
     task.wait(0.3)
+    
     while AutoForgeEnabled and MeltMinigame.Visible and ProgressBar.Area.AbsoluteSize.Y < (ProgressBar.Frame.AbsoluteSize.Y * 0.99) do
         local handlePos = Handle.AbsolutePosition
         local handleSize = Handle.AbsoluteSize
         local heaterSize = Heater.AbsoluteSize
-        local insetY = GuiService:GetGuiInset().Y
+        
         local startX = handlePos.X + (handleSize.X / 2)
-        local startY = handlePos.Y + (handleSize.Y / 2) + insetY
+        local startY = handlePos.Y + (handleSize.Y / 2) + getInsetY()
         local endY = startY + (heaterSize.Y * 0.7) 
+        
         VirtualInputManager:SendMouseMoveEvent(startX, startY, game)
         VirtualInputManager:SendMouseButtonEvent(startX, startY, 0, true, game, 1)
-        local steps = 2 
+        task.wait(0.05)
+        
+        local steps = 5 
         for i = 1, steps do
             local lerpY = startY + ((endY - startY) * (i / steps))
             VirtualInputManager:SendMouseMoveEvent(startX, lerpY, game)
             RunService.RenderStepped:Wait()
         end
+        
+        task.wait(0.05) 
         VirtualInputManager:SendMouseButtonEvent(startX, endY, 0, false, game, 1)
         RunService.RenderStepped:Wait()
     end
@@ -679,7 +697,7 @@ local function clickMoldUntilGone(moldModel)
         local vectorPos, onScreen = Camera:WorldToViewportPoint(targetPosition)
         if onScreen then
             VirtualInputManager:SendMouseButtonEvent(vectorPos.X, vectorPos.Y, 0, true, game, 1)
-            task.wait(0.05)
+            task.wait(0.1) 
             VirtualInputManager:SendMouseButtonEvent(vectorPos.X, vectorPos.Y, 0, false, game, 1)
         end
         task.wait(0.1) 
