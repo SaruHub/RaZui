@@ -460,7 +460,7 @@ local function MineLoop(flag, mode, priorityVarName)
 
         if rock then
             local rockPivot = rock:GetPivot()
-            local minePos = rockPivot * CFrame.new(0, -6, 0)
+            local minePos = rockPivot * CFrame.new(0, -7, 0)
             minePos = CFrame.lookAt(minePos.Position, rockPivot.Position)
 
             TweenTo(minePos)
