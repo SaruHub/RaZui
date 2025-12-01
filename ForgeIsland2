@@ -36,7 +36,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local GuiService = game:GetService("GuiService")
 local Workspace = game:GetService("Workspace")
-local UserInputService = game:GetService("UserInputService") -- Added for PC/Mobile check
+local UserInputService = game:GetService("UserInputService")
 
 local lp = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
@@ -149,8 +149,10 @@ local function TweenTo(targetCFrame)
             break
         end
         
+        -- STOP TWEEN IMMEDIATELY IF DEAD
         if not IsAlive() then
             tween:Cancel()
+            ToggleFloat(false)
             break
         end
 
@@ -244,9 +246,10 @@ FarmTab:Toggle({
 
         task.spawn(function()
             while _G.AutoFarm do
+                -- STRICT DEATH CHECK
                 if not IsAlive() then
                     repeat task.wait(0.5) until IsAlive()
-                    task.wait(1)
+                    task.wait(2) -- Wait for character to load
                 end
 
                 if #_G.SelectedNPCs == 0 then
@@ -291,6 +294,7 @@ FarmTab:Toggle({
 
                     TweenTo(attackCFrame)
                     
+                    -- IF DIED DURING TWEEN, RESTART LOOP
                     if not IsAlive() then continue end
 
                     ToggleFloat(true) 
@@ -348,11 +352,21 @@ local caves = {
 
 local allOres = {"Basalt Rock", "Basalt Core", "Basalt Vein", "Volcanic Rock", "Earth Crystal", "Crimson Crystal", "Cyan Crystal", "Light Crystal"}
 
+local RockBlacklist = {} -- [Instance] = tick()
+
 -- UPDATED isRockValid
 local function isRockValid(model, oreList, checkFullHealth)
     if not model or not model.Parent then return false, 0 end
     
-    -- 1. Name Match
+    -- BLACKLIST CHECK
+    if RockBlacklist[model] then
+        if (tick() - RockBlacklist[model]) < 30 then 
+            return false, 0 
+        else
+            RockBlacklist[model] = nil 
+        end
+    end
+    
     local nameMatch = false
     if oreList then
         for _, name in ipairs(oreList) do
@@ -363,7 +377,6 @@ local function isRockValid(model, oreList, checkFullHealth)
     end
     if not nameMatch then return false, 0 end
 
-    -- 2. Health Attribute Check
     local hPart = nil
     for _, c in ipairs(model:GetChildren()) do
         if c:GetAttribute("Health") then hPart = c break end
@@ -384,7 +397,7 @@ local function isRockValid(model, oreList, checkFullHealth)
     return false, 0
 end
 
--- UPDATED FindBestOre (Replaces FindNearestOre)
+-- UPDATED FindBestOre
 local function FindBestOre(mode, priority)
     if not IsAlive() then return nil end
     local rFolder = workspace:FindFirstChild("Rocks")
@@ -393,7 +406,6 @@ local function FindBestOre(mode, priority)
     local myPos = lp.Character.HumanoidRootPart.Position
     local candidates = {}
 
-    -- Collect Logic
     if mode == "Cave" then
         local data = caves[_G.SelectedCave or "Start Cave"]
         if data and data.folders then
@@ -435,12 +447,14 @@ end
 
 local function MineLoop(flag, mode, priorityVarName)
     while _G[flag] do
+        -- STRICT DEATH CHECK: Wait if dead
         if not IsAlive() then
+            SetNoclip(false)
+            ToggleFloat(false)
             repeat task.wait(0.5) until IsAlive()
-            task.wait(1) 
+            task.wait(2) -- Extra buffer for loading
         end
 
-        -- Get priority from the variable name passed
         local currentPriority = _G[priorityVarName] or "Nearest"
         local rock = FindBestOre(mode, currentPriority)
 
@@ -451,7 +465,12 @@ local function MineLoop(flag, mode, priorityVarName)
 
             TweenTo(minePos)
 
-            if not IsAlive() then continue end
+            -- IF DIED DURING TWEEN, RESTART LOOP
+            if not IsAlive() then 
+                SetNoclip(false)
+                ToggleFloat(false)
+                continue 
+            end
             
             ToggleFloat(false)
             SetNoclip(true)
@@ -461,13 +480,34 @@ local function MineLoop(flag, mode, priorityVarName)
                 lp.Character.HumanoidRootPart.Anchored = true
             end
 
+            local startMiningTime = tick()
+            local BUGGED_TIMEOUT = 6 
+
             -- MINING LOOP
             while _G[flag] and rock and rock.Parent do
                 local valid, _ = isRockValid(rock)
                 if not valid then break end
 
+                -- BREAK IF DEAD
                 if not IsAlive() then break end
                 
+                local hPart = nil
+                for _, c in ipairs(rock:GetChildren()) do
+                    if c:GetAttribute("Health") then hPart = c break end
+                end
+                
+                if hPart then
+                    local curHp = hPart:GetAttribute("Health") or 100
+                    local maxHp = hPart:GetAttribute("MaxHealth") or 100
+                    
+                    if (tick() - startMiningTime) > BUGGED_TIMEOUT then
+                        if curHp >= maxHp then
+                            RockBlacklist[rock] = tick()
+                            break 
+                        end
+                    end
+                end
+
                 local char = lp.Character
                 if not char:FindFirstChild("Pickaxe") then
                    local p = lp.Backpack:FindFirstChild("Pickaxe")
@@ -761,7 +801,7 @@ ForgeTab:Toggle({
 })
 
 local SellTab = Window:Tab({Title = "Sell Ores"})
-local items = {"Iron","Gold","Silver","Cobalt","Titanium","Lapis Lazuli","Platinum","Boneite","Dark Boneite","Volcanic Rock","Quartz","Amethyst","Topaz","Diamond","Sapphire","Slimite","Curpite","Obsidian","Emerald","Ruby","Rivalite","Uranium","Mythril","Eye Ore","Fireite","Magmaite","Lightite","Demonite","Darkryte"}
+local items = {"Iron","Gold","Silver","Cobalt","Titanium","Lapis Lazuli","Platinum","Boneite","Dark Boneite","Volcanic Rock","Quartz","Amethyst","Topaz","Diamond","Sapphire","Slimite","Cuprite","Obsidian","Emerald","Ruby","Rivalite","Uranium","Mythril","Eye Ore","Fireite","Magmaite","Lightite","Demonite","Darkryte"}
 local items1 = {"Magenta Crystal","Crimson Crystal","Greem Crystal","Orange Crystal","Blue Crystal","Rainbow Crystal","Arcane Crystal"}
 
 SellTab:Button({
