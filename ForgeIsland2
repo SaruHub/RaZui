@@ -344,8 +344,18 @@ FarmTab:Toggle({
 -- ORE / CAVE FARMING
 --------------------------------------------------------------------------------
 
-local Section = FarmTab:Section({ Title = "Farm Caves" })
+local Section = FarmTab:Section({ Title = "Mining (Caves & Ores)" })
 local ToolService = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Knit"):WaitForChild("Services"):WaitForChild("ToolService"):WaitForChild("RF"):WaitForChild("ToolActivated")
+
+-- Shared Mining Priority
+_G.MiningPriority = "Nearest" 
+
+FarmTab:Dropdown({
+    Title = "Mining Target Priority",
+    Values = { "Nearest", "Random", "Prioritize Highest MaxHealth", "Prioritize Lowest MaxHealth" },
+    Value = "Nearest",
+    Callback = function(v) _G.MiningPriority = v end
+})
 
 local caves = {
     ["Start Cave"] = { folders = {"Island2CaveStart"}, ores = {"Basalt Rock"} },
@@ -422,8 +432,8 @@ local function isRockValid(model, oreList, checkFullHealth, ignoreOccupied)
     return false, 0
 end
 
--- UPDATED FindBestOre
-local function FindBestOre(mode, priority)
+-- UPDATED FindBestOre (Uses Global Priority)
+local function FindBestOre(mode)
     if not IsAlive() then return nil end
     local rFolder = workspace:FindFirstChild("Rocks")
     if not rFolder then return nil end
@@ -469,10 +479,10 @@ local function FindBestOre(mode, priority)
         end
     end
 
-    return SelectFromList(candidates, priority)
+    return SelectFromList(candidates, _G.MiningPriority)
 end
 
-local function MineLoop(flag, mode, priorityVarName)
+local function MineLoop(flag, mode)
     while _G[flag] do
         -- STRICT DEATH CHECK: Wait if dead
         if not IsAlive() then
@@ -482,8 +492,7 @@ local function MineLoop(flag, mode, priorityVarName)
             task.wait(2) -- Extra buffer for loading
         end
 
-        local currentPriority = _G[priorityVarName] or "Nearest"
-        local rock = FindBestOre(mode, currentPriority)
+        local rock = FindBestOre(mode)
 
         if rock then
             local rockPivot = rock:GetPivot()
@@ -517,9 +526,6 @@ local function MineLoop(flag, mode, priorityVarName)
                 local valid, _ = isRockValid(rock, nil, nil, true)
                 if not valid then break end
                 
-                -- REMOVED THE EXTRA ISROCKOCCUPIED CHECK HERE
-                -- We want to persist if we are already mining.
-
                 -- BREAK IF DEAD
                 if not IsAlive() then break end
                 
@@ -568,19 +574,11 @@ local function MineLoop(flag, mode, priorityVarName)
     SetNoclip(false)
 end
 
-_G.CavePriority = "Nearest"
 FarmTab:Dropdown({
     Title = "Select Cave",
     Values = { "Start Cave", "Middle Cave", "Danger Cave","Deep Cave", "Goblin Cave", "Volcanic Depths" },
     Value = "Start Cave",
     Callback = function(v) _G.SelectedCave = v end
-})
-
-FarmTab:Dropdown({
-    Title = "Cave Target Priority",
-    Values = { "Nearest", "Random", "Prioritize Highest MaxHealth", "Prioritize Lowest MaxHealth" },
-    Value = "Nearest",
-    Callback = function(v) _G.CavePriority = v end
 })
 
 FarmTab:Toggle({
@@ -601,13 +599,12 @@ FarmTab:Toggle({
              SetNoclip(false)
              ToggleFloat(false)
         end
-        if state then task.spawn(function() MineLoop("AutoCaveEnabled", "Cave", "CavePriority") end) end
+        if state then task.spawn(function() MineLoop("AutoCaveEnabled", "Cave") end) end
     end
 })
 
-local Section = FarmTab:Section({ Title = "Farm Rocks" })
+FarmTab:Space()
 
-_G.OrePriority = "Nearest"
 FarmTab:Dropdown({
     Title = "Select Rock Types",
     Values = allOres,
@@ -615,13 +612,6 @@ FarmTab:Dropdown({
     Multi = true,
     AllowNone = true,
     Callback = function(v) _G.SelectedGlobalOres = v end
-})
-
-FarmTab:Dropdown({
-    Title = "Ore Target Priority",
-    Values = { "Nearest", "Random", "Prioritize Highest MaxHealth", "Prioritize Lowest MaxHealth" },
-    Value = "Nearest",
-    Callback = function(v) _G.OrePriority = v end
 })
 
 FarmTab:Toggle({
@@ -642,7 +632,7 @@ FarmTab:Toggle({
              SetNoclip(false)
              ToggleFloat(false)
         end
-        if state then task.spawn(function() MineLoop("AutoOreEnabled", "Global", "OrePriority") end) end
+        if state then task.spawn(function() MineLoop("AutoOreEnabled", "Global") end) end
     end
 })
 
@@ -686,9 +676,11 @@ local function getInsetY()
     end
 end
 
-local function clickHammerButton(button)
-    local absPos = button.AbsolutePosition
-    local absSize = button.AbsoluteSize
+-- UPDATED: Click specific UI element center (Fixes mobile offset by checking absolute pos of the target ring)
+local function clickVisualTarget(targetElement)
+    if not targetElement or not targetElement.Parent then return end
+    local absPos = targetElement.AbsolutePosition
+    local absSize = targetElement.AbsoluteSize
     local centerX = absPos.X + (absSize.X / 2)
     local centerY = absPos.Y + (absSize.Y / 2) + getInsetY()
     
@@ -717,7 +709,8 @@ local function handleHammerNote(noteObject)
         end
         if circle.Size.X.Scale <= (targetSize + 0.02) then
             if con then con:Disconnect() end
-            clickHammerButton(noteObject)
+            -- CLICK THE BORDER (Stationary Target) instead of noteObject
+            clickVisualTarget(border)
         end
     end)
 end
@@ -738,29 +731,51 @@ local function runMeltLoop()
     
     task.wait(0.3)
     
+    -- Main Melt Loop
     while AutoForgeEnabled and MeltMinigame.Visible and ProgressBar.Area.AbsoluteSize.Y < (ProgressBar.Frame.AbsoluteSize.Y * 0.99) do
         local handlePos = Handle.AbsolutePosition
         local handleSize = Handle.AbsoluteSize
-        local heaterSize = Heater.AbsoluteSize
         
+        -- 1. Calculate START position (Center of Handle)
         local startX = handlePos.X + (handleSize.X / 2)
         local startY = handlePos.Y + (handleSize.Y / 2) + getInsetY()
-        local endY = startY + (heaterSize.Y * 0.7) 
         
+        -- 2. Calculate TARGET position (Original Y + 50% of Original Y)
+        local targetRawY = handlePos.Y + (handlePos.Y * 0.50)
+        local endY = targetRawY + (handleSize.Y / 2) + getInsetY()
+
+        -- 3. Move to Start
         VirtualInputManager:SendMouseMoveEvent(startX, startY, game)
+        task.wait(0.05) 
+
+        -- 4. Click Down
         VirtualInputManager:SendMouseButtonEvent(startX, startY, 0, true, game, 1)
-        task.wait(0.05)
+        task.wait(0.05) 
         
-        local steps = 5 
-        for i = 1, steps do
+        -- 5. Drag Down (Interpolate)
+        local steps = 0.01 
+        for i = 0.01, steps do
             local lerpY = startY + ((endY - startY) * (i / steps))
             VirtualInputManager:SendMouseMoveEvent(startX, lerpY, game)
             RunService.RenderStepped:Wait()
         end
         
         task.wait(0.05) 
-        VirtualInputManager:SendMouseButtonEvent(startX, endY, 0, false, game, 1)
-        RunService.RenderStepped:Wait()
+
+        -- 6. Drag Up (Interpolate Back to Start)
+        for i = 0.01, steps do
+            local lerpY = endY + ((startY - endY) * (i / steps)) -- Moves from End towards Start
+            VirtualInputManager:SendMouseMoveEvent(startX, lerpY, game)
+            RunService.RenderStepped:Wait()
+        end
+
+        task.wait(0.05)
+        
+        -- 7. Release Click at Start Position
+        VirtualInputManager:SendMouseButtonEvent(startX, startY, 0, false, game, 1)
+        
+        -- 8. Wait for cooldown
+        task.wait(0.1)
     end
     isMelting = false
 end
