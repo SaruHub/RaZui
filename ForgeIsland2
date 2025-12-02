@@ -362,11 +362,11 @@ local caves = {
     ["Middle Cave"] = { folders = {"Island2CaveMid"}, ores = {"Basalt Rock"} },
     ["Danger Cave"] = { folders = {"Island2CaveDanger1", "Island2CaveDanger2", "Island2CaveDanger3", "Island2CaveDanger4", "Island2CaveDangerClosed"}, ores = {"Basalt Rock", "Basalt Core", "Basalt Vein"} },
     ["Deep Cave"] = { folders = {"Island2CaveDeep"}, ores = {"Basalt Rock", "Basalt Core", "Basalt Vein"} },
-    ["Goblin Cave"] = { folders = {"Island2GoblinCave"}, ores = {"Basalt Rock", "Basalt Core", "Basalt Vein", "Earth Crystal", "Crimson Crystal", "Cyan Crystal", "Light Crystal" } },
+    ["Goblin Cave"] = { folders = {"Island2GoblinCave"}, ores = {"Basalt Rock", "Basalt Core", "Basalt Vein", "Earth Crystal", "Crimson Crystal", "Cyan Crystal", "Light Crystal", "Voilet Crystal" } },
     ["Volcanic Depths"] = { folders = {"Island2VolcanicDepths", "Island2CaveLavaClosed"}, ores = {"Basalt Core", "Basalt Vein", "Volcanic Rock"} }
 }
 
-local allOres = {"Basalt Rock", "Basalt Core", "Basalt Vein", "Volcanic Rock", "Earth Crystal", "Crimson Crystal", "Cyan Crystal", "Light Crystal"}
+local allOres = {"Basalt Rock", "Basalt Core", "Basalt Vein", "Volcanic Rock", "Earth Crystal", "Crimson Crystal", "Cyan Crystal", "Light Crystal", "Voilet Crystal"}
 
 local RockBlacklist = {} -- [Instance] = tick()
 
@@ -878,7 +878,7 @@ ForgeTab:Toggle({
 })
 
 local SellTab = Window:Tab({Title = "Sell Ores"})
-local items = {"Iron","Gold","Silver","Cobalt","Titanium","Lapis Lazuli","Platinum","Boneite","Dark Boneite","Volcanic Rock","Quartz","Amethyst","Topaz","Diamond","Sapphire","Slimite","Curpite","Obsidian","Emerald","Ruby","Rivalite","Uranium","Mythril","Eye Ore","Fireite","Magmaite","Lightite","Demonite","Darkryte"}
+local items = {"Iron","Gold","Silver","Cobalt","Titanium","Lapis Lazuli","Platinum","Boneite","Dark Boneite","Volcanic Rock","Quartz","Amethyst","Topaz","Diamond","Sapphire","Slimite","Cuprite","Obsidian","Emerald","Ruby","Rivalite","Uranium","Mythril","Eye Ore","Fireite","Magmaite","Lightite","Demonite","Darkryte"}
 local items1 = {"Magenta Crystal","Crimson Crystal","Greem Crystal","Orange Crystal","Blue Crystal","Rainbow Crystal","Arcane Crystal"}
 
 -- MODIFIED BUTTON: Teleport and interact (Fixed Tween Logic)
