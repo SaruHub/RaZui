@@ -1,0 +1,1737 @@
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+
+-- KEY SYSTEM
+local KeySystem = {
+    Enabled = true,
+    KeyFile = "RaZuiHub_Key.txt",
+    KeyAPI = "https://api.example.com/validate", -- Replace with your actual API endpoint
+    DiscordInvite = "https://discord.gg/yourserver", -- Replace with your Discord server
+    CurrentKey = nil,
+    IsAuthenticated = false
+}
+
+-- Key validation function
+local function ValidateKey(key)
+    if not key or key == "" then return false, "No key provided" end
+    
+    -- For demonstration, using a simple hardcoded key
+    -- In production, replace this with HTTP request to your server
+    local validKeys = {
+        "RAZUI-2024-DEMO-KEY",
+        "RAZUI-PREMIUM-KEY",
+        "RAZUI-DEVELOPER-KEY"
+    }
+    
+    -- Simple validation (replace with actual API call)
+    for _, validKey in ipairs(validKeys) do
+        if key == validKey then
+            return true, "Key validated successfully"
+        end
+    end
+    
+    -- Example of HTTP validation (commented out - uncomment when you have a real API)
+    --[[
+    local success, response = pcall(function()
+        return game:GetService("HttpService"):GetAsync(KeySystem.KeyAPI .. "?key=" .. key)
+    end)
+    
+    if success then
+        local data = game:GetService("HttpService"):JSONDecode(response)
+        return data.valid, data.message or "Unknown error"
+    else
+        return false, "Failed to connect to validation server"
+    end
+    --]]
+    
+    return false, "Invalid key"
+end
+
+-- Save key locally
+local function SaveKey(key)
+    writefile(KeySystem.KeyFile, key)
+end
+
+-- Load saved key
+local function LoadSavedKey()
+    if isfile(KeySystem.KeyFile) then
+        return readfile(KeySystem.KeyFile)
+    end
+    return nil
+end
+
+-- Create key input UI
+local function CreateKeyUI()
+    local KeyUI = WindUI:CreateWindow({
+        Title = "RaZui Hub - Key System",
+        Folder = "RaZuiKeySystem",
+        Size = UDim2.fromOffset(400, 300),
+        Transparent = true,
+        Theme = "Dark",
+        Resizable = false,
+        HideTopBar = false
+    })
+    
+    local KeyTab = KeyUI:Tab({Title = "Authentication"})
+    KeyTab:Select()
+    
+    local KeySection = KeyTab:Section({ Title = "Enter Your Key" })
+    
+    local keyInput = ""
+    local statusText = "Please enter your key to continue"
+    local statusColor = Color3.new(1, 1, 1)
+    
+    local KeyInput = KeySection:Input({
+        Title = "License Key",
+        Placeholder = "Enter your key here...",
+        Callback = function(value)
+            keyInput = value
+        end
+    })
+    
+    local StatusLabel = KeySection:Label({
+        Title = statusText,
+        Color = statusColor
+    })
+    
+    -- Check for saved key on startup
+    local savedKey = LoadSavedKey()
+    if savedKey then
+        keyInput = savedKey
+        KeyInput:SetValue(savedKey)
+    end
+    
+    KeySection:Button({
+        Title = "Validate Key",
+        Callback = function()
+            if keyInput == "" then
+                StatusLabel:SetTitle("Please enter a key first!")
+                StatusLabel:SetColor(Color3.new(1, 0.5, 0.5))
+                return
+            end
+            
+            StatusLabel:SetTitle("Validating key...")
+            StatusLabel:SetColor(Color3.new(1, 1, 0.5))
+            
+            local isValid, message = ValidateKey(keyInput)
+            
+            if isValid then
+                StatusLabel:SetTitle("✓ " .. message)
+                StatusLabel:SetColor(Color3.new(0.5, 1, 0.5))
+                KeySystem.CurrentKey = keyInput
+                KeySystem.IsAuthenticated = true
+                SaveKey(keyInput)
+                
+                task.wait(1)
+                KeyUI:Destroy()
+                
+                -- Start the main script
+                task.spawn(MainScript)
+            else
+                StatusLabel:SetTitle("✗ " .. message)
+                StatusLabel:SetColor(Color3.new(1, 0.5, 0.5))
+            end
+        end
+    })
+    
+    KeySection:Button({
+        Title = "Get Key",
+        Callback = function()
+            if KeySystem.DiscordInvite and KeySystem.DiscordInvite ~= "" then
+                -- Copy Discord invite to clipboard
+                if syn and syn.write_clipboard then
+                    syn.write_clipboard(KeySystem.DiscordInvite)
+                    StatusLabel:SetTitle("Discord invite copied to clipboard!")
+                else
+                    StatusLabel:SetTitle("Join our Discord: " .. KeySystem.DiscordInvite)
+                end
+                StatusLabel:SetColor(Color3.new(0.5, 0.8, 1))
+            end
+        end
+    })
+    
+    KeySection:Button({
+        Title = "Remove Saved Key",
+        Callback = function()
+            if isfile(KeySystem.KeyFile) then
+                delfile(KeySystem.KeyFile)
+                StatusLabel:SetTitle("Saved key removed!")
+                StatusLabel:SetColor(Color3.new(1, 1, 0.5))
+                keyInput = ""
+                KeyInput:SetValue("")
+            else
+                StatusLabel:SetTitle("No saved key found")
+                StatusLabel:SetColor(Color3.new(1, 0.5, 0.5))
+            end
+        end
+    })
+    
+    return KeyUI
+end
+
+-- Main script function (wrapped)
+local function MainScript()
+    -- WINDOW SETUP
+    local Window = WindUI:CreateWindow({
+        Title = "RaZui Hub",
+        Folder = "MySuperHub",
+        Size = UDim2.fromOffset(580, 460),
+        MinSize = Vector2.new(560, 350),
+        MaxSize = Vector2.new(850, 560),
+        Transparent = true,
+        Theme = "Dark",
+        Resizable = true,
+        SideBarWidth = 150,
+        BackgroundImageTransparency = 0.42,
+        HideSearchBar = true,
+        ScrollBarEnabled = false,
+    })
+
+    Window:SetToggleKey(Enum.KeyCode.K)
+    Window:EditOpenButton({
+        Title = "Open UI",
+        CornerRadius = UDim.new(0,16),
+        StrokeThickness = 2,
+        Color = ColorSequence.new(Color3.fromHex("FF0F7B"), Color3.fromHex("F89B29")),
+        OnlyMobile = false,
+        Enabled = true,
+        Draggable = true,
+    })
+
+    --------------------------------------------------------------------------------
+    -- SERVICES & UTILS
+    --------------------------------------------------------------------------------
+    local TweenService = game:GetService("TweenService")
+    local RunService = game:GetService("RunService")
+    local Players = game:GetService("Players")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local VirtualInputManager = game:GetService("VirtualInputManager")
+    local GuiService = game:GetService("GuiService")
+    local Workspace = game:GetService("Workspace")
+    local UserInputService = game:GetService("UserInputService")
+    local HttpService = game:GetService("HttpService")
+
+    local lp = Players.LocalPlayer
+    local Camera = Workspace.CurrentCamera
+    local Debris = Workspace:WaitForChild("Debris")
+    local PlayerGui = lp:WaitForChild("PlayerGui")
+    local ForgeUI = PlayerGui:WaitForChild("Forge", 10) 
+
+    -- Configuration
+    local MOVEMENT_SPEED = 65 
+    local NoclipConnection = nil
+    local RespawnTimer = 0
+    local LastTargetRock = nil -- Memory for death return
+
+    -- Defaults
+    _G.FarmPosition = "Below"
+    _G.TargetPriority = "Nearest"
+
+    -- CONFIGURATION MANAGEMENT
+    local ConfigFileName = "RaZuiHub_Config.json"
+
+    local function SaveConfig()
+        local config = {
+            FarmPosition = _G.FarmPosition,
+            TargetPriority = _G.TargetPriority,
+            SelectedNPCs = _G.SelectedNPCs,
+            SelectedCave = _G.SelectedCave,
+            SelectedGlobalOres = _G.SelectedGlobalOres,
+            SellDelay = sellDelay,
+            SelectedItems = selectedItems,
+            SelectedPotion = selectedPotion,
+            BuyAmount = buyAmount,
+            SelectedDisplay = selectedDisplay,
+            SelectedLocation = SelectedLocation,
+            AntiAFK = afkConn ~= nil,
+            HideName = isNameHidden
+        }
+        
+        local success, encoded = pcall(function()
+            return HttpService:JSONEncode(config)
+        end)
+        
+        if success then
+            writefile(ConfigFileName, encoded)
+            Window:Notification({
+                Title = "Success",
+                Text = "Configuration saved successfully!",
+                Duration = 3
+            })
+        else
+            Window:Notification({
+                Title = "Error",
+                Text = "Failed to save configuration: " .. tostring(encoded),
+                Duration = 5
+            })
+        end
+    end
+
+    local function LoadConfig()
+        if not isfile(ConfigFileName) then
+            Window:Notification({
+                Title = "Info",
+                Text = "No configuration file found. Using default settings.",
+                Duration = 3
+            })
+            return false
+        end
+        
+        local success, decoded = pcall(function()
+            return HttpService:JSONDecode(readfile(ConfigFileName))
+        end)
+        
+        if success and decoded then
+            -- Apply loaded settings
+            if decoded.FarmPosition then
+                _G.FarmPosition = decoded.FarmPosition
+            end
+            if decoded.TargetPriority then
+                _G.TargetPriority = decoded.TargetPriority
+            end
+            if decoded.SelectedNPCs then
+                _G.SelectedNPCs = decoded.SelectedNPCs
+            end
+            if decoded.SelectedCave then
+                _G.SelectedCave = decoded.SelectedCave
+            end
+            if decoded.SelectedGlobalOres then
+                _G.SelectedGlobalOres = decoded.SelectedGlobalOres
+            end
+            if decoded.SellDelay then
+                sellDelay = decoded.SellDelay
+            end
+            if decoded.SelectedItems then
+                selectedItems = decoded.SelectedItems
+            end
+            if decoded.SelectedPotion then
+                selectedPotion = decoded.SelectedPotion
+            end
+            if decoded.BuyAmount then
+                buyAmount = decoded.BuyAmount
+            end
+            if decoded.SelectedDisplay then
+                selectedDisplay = decoded.SelectedDisplay
+            end
+            if decoded.SelectedLocation then
+                SelectedLocation = decoded.SelectedLocation
+            end
+            
+            Window:Notification({
+                Title = "Success",
+                Text = "Configuration loaded successfully!",
+                Duration = 3
+            })
+            return true
+        else
+            Window:Notification({
+                Title = "Error",
+                Text = "Failed to load configuration: " .. tostring(decoded),
+                Duration = 5
+            })
+            return false
+        end
+    end
+
+    -- HELPER: Check if Alive
+    local function IsAlive()
+        local char = lp.Character
+        if not char then return false end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        local root = char:FindFirstChild("HumanoidRootPart")
+        return hum and root and hum.Health > 0
+    end
+
+    -- Track Respawn
+    lp.CharacterAdded:Connect(function()
+        RespawnTimer = tick()
+        -- Clean up any lingering states on respawn
+        SetNoclip(false)
+        ToggleFloat(false)
+        ToggleGyro(false)
+    end)
+
+    -- HELPER: Get Farm Offset
+    local function GetFarmOffset()
+        if _G.FarmPosition == "Above" then
+            return CFrame.new(0, 7, 0)
+        elseif _G.FarmPosition == "Beside" then
+            return CFrame.new(0, 0, 6) 
+        else -- Default "Below"
+            return CFrame.new(0, -7, 0)
+        end
+    end
+
+    -- 1. NOCLIP (Fixed to only modify character parts, not all descendants)
+    local function SetNoclip(state)
+        if state then
+            if not NoclipConnection then
+                NoclipConnection = RunService.Stepped:Connect(function()
+                    if IsAlive() then
+                        -- Only modify direct character parts, not all descendants
+                        for _, part in pairs(lp.Character:GetChildren()) do
+                            if part:IsA("BasePart") and part.CanCollide == true then
+                                part.CanCollide = false
+                            end
+                        end
+                    end
+                end)
+            end
+        else
+            if NoclipConnection then
+                NoclipConnection:Disconnect()
+                NoclipConnection = nil
+                -- Reset collision when disabling noclip
+                if IsAlive() then
+                    for _, part in pairs(lp.Character:GetChildren()) do
+                        if part:IsA("BasePart") then
+                            part.CanCollide = true
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- 2. CAMERA NOCLIP
+    local function SetCameraNoclip(state)
+        if state then
+            lp.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.Invisicam
+        else
+            if not _G.AutoFarm and not _G.AutoCaveEnabled and not _G.AutoOreEnabled then
+                lp.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.Zoom
+            end
+        end
+    end
+
+    -- 3. FLOAT (Fixed to properly clean up)
+    local function ToggleFloat(state)
+        if not IsAlive() then return end
+        local hrp = lp.Character.HumanoidRootPart
+        local hum = lp.Character.Humanoid
+
+        if state then
+            hum.PlatformStand = true
+            if not hrp:FindFirstChild("FarmFloat") then
+                local bv = Instance.new("BodyVelocity")
+                bv.Name = "FarmFloat"
+                bv.Velocity = Vector3.new(0, 0, 0)
+                bv.MaxForce = Vector3.new(100000, 100000, 100000)
+                bv.Parent = hrp
+            end
+        else
+            hum.PlatformStand = false
+            local bv = hrp:FindFirstChild("FarmFloat")
+            if bv then bv:Destroy() end
+        end
+    end
+
+    -- 4. GYRO (To stand up straight when waiting) (Fixed to properly clean up)
+    local function ToggleGyro(state)
+        if not IsAlive() then return end
+        local hrp = lp.Character.HumanoidRootPart
+        
+        if state then
+            if not hrp:FindFirstChild("StandUpGyro") then
+                local bg = Instance.new("BodyGyro")
+                bg.Name = "StandUpGyro"
+                bg.MaxTorque = Vector3.new(400000, 400000, 400000)
+                bg.P = 3000
+                bg.D = 100
+                local _, yRot, _ = hrp.CFrame:ToEulerAnglesYXZ()
+                bg.CFrame = CFrame.fromEulerAnglesYXZ(0, yRot, 0)
+                bg.Parent = hrp
+            end
+        else
+            local bg = hrp:FindFirstChild("StandUpGyro")
+            if bg then bg:Destroy() end
+        end
+    end
+
+    -- 5. DEATH MONITOR (Fixed to not anchor root part which can interfere with respawning)
+    local function ConnectDeathMonitor(char)
+        local hum = char:WaitForChild("Humanoid", 10)
+        if hum then
+            hum.Died:Connect(function()
+                -- Clean up any active states on death
+                if char:FindFirstChild("HumanoidRootPart") then
+                    local bv = char.HumanoidRootPart:FindFirstChild("FarmFloat")
+                    if bv then bv:Destroy() end
+                    local bg = char.HumanoidRootPart:FindFirstChild("StandUpGyro")
+                    if bg then bg:Destroy() end
+                    -- Don't anchor the root part as it can interfere with respawning
+                end
+            end)
+        end
+    end
+
+    if lp.Character then ConnectDeathMonitor(lp.Character) end
+    lp.CharacterAdded:Connect(ConnectDeathMonitor)
+
+    -- 6. TWEEN (Fixed to handle edge cases better)
+    local function TweenTo(targetCFrame)
+        if not IsAlive() then return end
+        -- Safety Cooldown on Respawn
+        if (tick() - RespawnTimer) < 6 then return end
+
+        local hrp = lp.Character.HumanoidRootPart
+        
+        local distance = (hrp.Position - targetCFrame.Position).Magnitude
+        local time = distance / MOVEMENT_SPEED
+        
+        -- Increased distance threshold for better reliability
+        if distance < 10 then
+            hrp.CFrame = targetCFrame
+            return
+        end
+
+        SetNoclip(true)
+        ToggleFloat(true) 
+
+        local tweenInfo = TweenInfo.new(time, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
+        local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
+        
+        tween:Play()
+        
+        local completed = false
+        local conn = tween.Completed:Connect(function() completed = true end)
+        
+        while not completed do
+            if not _G.AutoFarm and not _G.AutoCaveEnabled and not _G.AutoOreEnabled and not _G.TeleportToggleActive then
+                tween:Cancel()
+                ToggleFloat(false)
+                break
+            end
+
+            if not IsAlive() then
+                tween:Cancel()
+                ToggleFloat(false)
+                break
+            end
+
+            task.wait()
+        end
+        
+        if conn then conn:Disconnect() end
+    end
+
+    -- 7. PRIORITY SORTER
+    local function SelectFromList(list, priority)
+        if #list == 0 then return nil end
+        
+        if priority == "Random" then
+            return list[math.random(1, #list)].obj
+        elseif priority == "Prioritize Highest MaxHealth" then
+            table.sort(list, function(a, b) return a.maxHp > b.maxHp end)
+            return list[1].obj
+        elseif priority == "Prioritize Lowest MaxHealth" then
+            table.sort(list, function(a, b) return a.maxHp < b.maxHp end)
+            return list[1].obj
+        else -- Default to Nearest
+            table.sort(list, function(a, b) return a.dist < b.dist end)
+            return list[1].obj
+        end
+    end
+
+    --------------------------------------------------------------------------------
+    -- FARM TAB
+    --------------------------------------------------------------------------------
+
+    local FarmTab = Window:Tab({Title = "Farm"})
+    FarmTab:Select()
+
+    local Section = FarmTab:Section({ Title = "Settings" })
+
+    FarmTab:Dropdown({
+        Title = "Farming Position",
+        Values = {"Below", "Above", "Beside"},
+        Value = "Below",
+        Callback = function(v) 
+            _G.FarmPosition = v 
+        end
+    })
+
+    FarmTab:Dropdown({
+        Title = "Target Priority (Mobs & Ores)",
+        Values = { "Nearest", "Random", "Prioritize Highest MaxHealth", "Prioritize Lowest MaxHealth" },
+        Value = "Nearest",
+        Callback = function(v) 
+            _G.TargetPriority = v 
+        end
+    })
+
+    local Section = FarmTab:Section({ Title = "Farm Mobs" })
+
+    _G.SelectedNPCs = { "Zombie" }
+
+    local function GetBaseName(displayName)
+        if not displayName then return "" end
+        return displayName:match("^(.-)%s*%(Level:") or displayName
+    end
+
+    local Dropdown = FarmTab:Dropdown({
+        Title = "Select MOBs to Farm",
+        Values = { "Zombie", "Delver Zombie", "Brute Zombie" },
+        Value = { "Zombie" },
+        Multi = true,
+        AllowNone = true,
+        Callback = function(optionsTable) 
+            _G.SelectedNPCs = optionsTable or {}
+        end
+    })
+
+    local Toggle = FarmTab:Toggle({
+        Title = "Auto Farm MOBs",
+        Desc = "Targets Selected MOBs",
+        Value = false,
+        Callback = function(state)
+            _G.AutoFarm = state
+            SetCameraNoclip(state) 
+            
+            if not state then
+                SetNoclip(false)
+                ToggleFloat(false)
+                ToggleGyro(false)
+                SetCameraNoclip(false) 
+                return
+            end
+
+            task.spawn(function()
+                while _G.AutoFarm do
+                    -- 1. SAFETY CHECK: Dead or respawning
+                    if not IsAlive() or (tick() - RespawnTimer) < 6 then
+                        SetNoclip(false)
+                        ToggleFloat(false)
+                        ToggleGyro(false)
+                        task.wait(0.5) 
+                        continue 
+                    end
+
+                    if #_G.SelectedNPCs == 0 then
+                        ToggleFloat(true)
+                        task.wait(1)
+                        continue
+                    end
+                    
+                    local validTargets = {}
+                    local myPos = lp.Character.HumanoidRootPart.Position
+
+                    if workspace:FindFirstChild("Living") then
+                        for _, v in pairs(workspace.Living:GetChildren()) do
+                            if v:GetAttribute("IsNpc") == true and v:FindFirstChildOfClass("Humanoid") and v:FindFirstChild("HumanoidRootPart") then
+                                local h = v.Humanoid
+                                if h.Health > 0 then
+                                    local baseName = GetBaseName(h.DisplayName)
+                                    local match = false
+                                    for _, s in ipairs(_G.SelectedNPCs) do
+                                        if s == baseName then match = true break end
+                                    end
+                                    
+                                    if match then
+                                        local dist = (myPos - v.HumanoidRootPart.Position).Magnitude
+                                        table.insert(validTargets, {
+                                            obj = v,
+                                            dist = dist,
+                                            maxHp = h.MaxHealth or 100
+                                        })
+                                    end
+                                end
+                            end
+                        end
+                    end
+
+                    local target = SelectFromList(validTargets, _G.TargetPriority)
+
+                    if target then
+                        ToggleGyro(false)
+
+                        local tRoot = target.HumanoidRootPart
+                        local attackCFrame = tRoot.CFrame * GetFarmOffset() 
+                        attackCFrame = CFrame.lookAt(attackCFrame.Position, tRoot.Position)
+
+                        TweenTo(attackCFrame)
+                        
+                        if not IsAlive() then continue end
+
+                        ToggleFloat(true) 
+                        SetNoclip(true)
+
+                        local attackCount = 0
+                        while _G.AutoFarm and target and target.Parent and target.Humanoid.Health > 0 do
+                            if not IsAlive() then break end
+                            
+                            local tPos = target.HumanoidRootPart.Position
+                            local goalPos = target.HumanoidRootPart.CFrame * GetFarmOffset()
+                            lp.Character.HumanoidRootPart.CFrame = CFrame.lookAt(goalPos.Position, tPos)
+                            lp.Character.HumanoidRootPart.Velocity = Vector3.zero
+
+                            local char = lp.Character
+                            if not char:FindFirstChildWhichIsA("Tool") then
+                                local tool = lp.Backpack:FindFirstChild("Weapon") or lp.Backpack:FindFirstChildWhichIsA("Tool")
+                                if tool then char.Humanoid:EquipTool(tool) end
+                            end
+
+                            pcall(function()
+                                game:GetService("ReplicatedStorage").Shared.Packages.Knit.Services.ToolService.RF.ToolActivated:InvokeServer("Weapon")
+                            end)
+                            
+                            attackCount = attackCount + 1
+                            -- Safety check to prevent infinite loops
+                            if attackCount > 50 then break end
+                            
+                            task.wait()
+                        end
+                    else
+                        -- NO TARGET: Float in place
+                        if IsAlive() then
+                            SetNoclip(true)
+                            ToggleFloat(true)
+                            ToggleGyro(true) -- Stand straight
+                            lp.Character.HumanoidRootPart.Velocity = Vector3.zero
+                        end
+                        task.wait(0.5)
+                    end
+                    task.wait()
+                end
+                ToggleFloat(false)
+                ToggleGyro(false)
+                SetNoclip(false)
+                SetCameraNoclip(false)
+            end)
+        end
+    })
+
+    --------------------------------------------------------------------------------
+    -- ORE / CAVE FARMING
+    --------------------------------------------------------------------------------
+
+    local Section = FarmTab:Section({ Title = "Mining (Caves & Ores)" })
+
+    local ToolService = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Knit"):WaitForChild("Services"):WaitForChild("ToolService"):WaitForChild("RF"):WaitForChild("ToolActivated")
+
+    local caves = {
+        ["Start Cave"] = { folder = "Island1CaveStart", ores = {"Pebble"} },
+        ["Middle Cave"] = { folder = "Island1CaveMid", ores = {"Rock"} },
+        ["Deep Cave"] =  { folder = "Island1CaveDeep", ores = {"Rock", "Boulder"} },
+        ["Roof"] =       { folder = "Roof", ores = {"Lucky Block"} }
+    }
+    local allOres = {"Pebble", "Rock", "Boulder", "Lucky Block"}
+
+    local RockBlacklist = {} -- [Instance] = tick()
+
+    -- Fixed isRockValid function with better error handling
+    local function isRockValid(model, oreList, checkFullHealth)
+        if not model or not model.Parent then return false, 0 end
+        
+        -- BLACKLIST CHECK
+        if RockBlacklist[model] then
+            if (tick() - RockBlacklist[model]) < 30 then 
+                return false, 0 
+            else
+                RockBlacklist[model] = nil 
+            end
+        end
+
+        local nameMatch = false
+        if oreList then
+            for _, name in ipairs(oreList) do
+                if model.Name == name or model:FindFirstChild(name) then nameMatch = true break end
+            end
+        else
+            nameMatch = true
+        end
+        if not nameMatch then return false, 0 end
+
+        local hPart = nil
+        for _, c in ipairs(model:GetChildren()) do
+            if c:GetAttribute("Health") then hPart = c break end
+        end
+        
+        if hPart then
+            local hp = hPart:GetAttribute("Health")
+            local maxHp = hPart:GetAttribute("MaxHealth") or 100
+
+            if not hp or hp <= 0 then return false, 0 end
+
+            if checkFullHealth then
+                if hp < maxHp then return false, 0 end
+            end
+
+            return true, maxHp
+        end
+        return false, 0
+    end
+
+    local function FindBestOre(mode)
+        if not IsAlive() then return nil end
+        local rFolder = workspace:FindFirstChild("Rocks")
+        if not rFolder then return nil end
+
+        local myPos = lp.Character.HumanoidRootPart.Position
+        local candidates = {}
+
+        if mode == "Cave" then
+            local data = caves[_G.SelectedCave or "Start Cave"]
+            local f = rFolder:FindFirstChild(data.folder)
+            if f then
+                for _, v in ipairs(f:GetChildren()) do
+                    local valid, maxHp = isRockValid(v, data.ores, true)
+                    if valid then 
+                        table.insert(candidates, {
+                            obj = v,
+                            dist = (v:GetPivot().Position - myPos).Magnitude,
+                            maxHp = maxHp
+                        })
+                    end
+                end
+            end
+        elseif mode == "Global" then
+            local targetOres = _G.SelectedGlobalOres
+            if not targetOres or #targetOres == 0 then targetOres = {"Pebble"} end
+
+            for _, folder in ipairs(rFolder:GetChildren()) do
+                for _, v in ipairs(folder:GetChildren()) do
+                    local valid, maxHp = isRockValid(v, targetOres, true)
+                    if valid then 
+                        table.insert(candidates, {
+                            obj = v,
+                            dist = (v:GetPivot().Position - myPos).Magnitude,
+                            maxHp = maxHp
+                        })
+                    end
+                end
+            end
+        end
+        return SelectFromList(candidates, _G.TargetPriority)
+    end
+
+    -- Fixed MineLoop function with better error handling and safety checks
+    local function MineLoop(flag, mode)
+        while _G[flag] do
+            -- 1. SAFETY CHECK: Dead or respawning
+            if not IsAlive() or (tick() - RespawnTimer) < 6 then
+                SetNoclip(false)
+                ToggleFloat(false)
+                ToggleGyro(false)
+                task.wait(0.5) 
+                continue 
+            end
+
+            local rock = nil
+
+            -- 2. RETURN TO DEATH SPOT LOGIC
+            if LastTargetRock and LastTargetRock.Parent then
+                if isRockValid(LastTargetRock, nil, false) then
+                     rock = LastTargetRock
+                else
+                     LastTargetRock = nil
+                end
+            else
+                LastTargetRock = nil
+            end
+
+            if not rock then
+                rock = FindBestOre(mode)
+            end
+            
+            if rock then
+                LastTargetRock = rock
+                ToggleGyro(false)
+
+                local rockPivot = rock:GetPivot()
+                local minePos = rockPivot * GetFarmOffset()
+                minePos = CFrame.lookAt(minePos.Position, rockPivot.Position)
+
+                TweenTo(minePos)
+                
+                if not IsAlive() then 
+                    SetNoclip(false)
+                    ToggleFloat(false)
+                    continue 
+                end
+
+                ToggleFloat(false)
+                SetNoclip(true)
+                
+                if IsAlive() then
+                    lp.Character.HumanoidRootPart.CFrame = minePos
+                    lp.Character.HumanoidRootPart.Anchored = true
+                end
+
+                local startMiningTime = tick()
+                local BUGGED_TIMEOUT = 6 
+                local lastHp = 0
+                local noChangeCount = 0
+
+                while _G[flag] and rock and rock.Parent do
+                    local valid, _ = isRockValid(rock)
+                    if not valid then break end
+
+                    if not IsAlive() then break end
+                    
+                    local hPart = nil
+                    for _, c in ipairs(rock:GetChildren()) do
+                        if c:GetAttribute("Health") then hPart = c break end
+                    end
+                    
+                    if hPart then
+                        local curHp = hPart:GetAttribute("Health") or 100
+                        local maxHp = hPart:GetAttribute("MaxHealth") or 100
+                        
+                        -- Improved bugged timeout detection
+                        if curHp == lastHp then
+                            noChangeCount = noChangeCount + 1
+                            if noChangeCount > 60 then -- 6 seconds at 0.1s intervals
+                                RockBlacklist[rock] = tick()
+                                LastTargetRock = nil
+                                break 
+                            end
+                        else
+                            noChangeCount = 0
+                            lastHp = curHp
+                        end
+                        
+                        if (tick() - startMiningTime) > BUGGED_TIMEOUT then
+                            if curHp >= maxHp then
+                                RockBlacklist[rock] = tick()
+                                LastTargetRock = nil
+                                break 
+                            end
+                        end
+                    end
+
+                    local char = lp.Character
+                    if not char:FindFirstChild("Pickaxe") then
+                       local p = lp.Backpack:FindFirstChild("Pickaxe")
+                       if p then char.Humanoid:EquipTool(p) end
+                    end
+
+                    pcall(function() ToolService:InvokeServer("Pickaxe") end)
+                    task.wait(0.1)
+                end
+                
+                if not rock.Parent then
+                     LastTargetRock = nil
+                end
+
+                if IsAlive() then
+                    lp.Character.HumanoidRootPart.Anchored = false
+                end
+            else
+                -- NO TARGET: Float in place
+                if IsAlive() then
+                    lp.Character.HumanoidRootPart.Anchored = false
+                    SetNoclip(true)
+                    ToggleFloat(true)
+                    ToggleGyro(true) -- Stand straight
+                    lp.Character.HumanoidRootPart.Velocity = Vector3.zero
+                end
+                task.wait(1)
+            end
+            task.wait()
+        end
+        LastTargetRock = nil
+        if IsAlive() then
+            lp.Character.HumanoidRootPart.Anchored = false
+        end
+        SetNoclip(false)
+        ToggleFloat(false)
+        ToggleGyro(false)
+        SetCameraNoclip(false)
+    end
+
+    FarmTab:Dropdown({
+        Title = "Select Cave",
+        Values = {"Start Cave", "Middle Cave", "Deep Cave", "Roof"},
+        Value = "Start Cave",
+        Callback = function(v) _G.SelectedCave = v end
+    })
+
+    FarmTab:Toggle({
+        Title = "Auto Mine Cave",
+        Desc = "Targets Rocks in Cave",
+        Callback = function(state)
+            _G.AutoCaveEnabled = state
+            _G.AutoOreEnabled = false
+            LastTargetRock = nil
+            SetCameraNoclip(state)
+            
+            if not state and IsAlive() then
+                 lp.Character.HumanoidRootPart.Anchored = false
+                 SetCameraNoclip(false)
+                 ToggleFloat(false)
+                 ToggleGyro(false)
+                 SetNoclip(false)
+            end
+            if state then task.spawn(function() MineLoop("AutoCaveEnabled", "Cave") end) end
+        end
+    })
+
+    FarmTab:Space()
+
+    FarmTab:Dropdown({
+        Title = "Select Rock Types",
+        Values = allOres,
+        Value = { "Pebble" },
+        Multi = true,
+        AllowNone = true,
+        Callback = function(v) _G.SelectedGlobalOres = v end
+    })
+
+    FarmTab:Toggle({
+        Title = "Auto Mine Ore (Global)",
+        Desc = "Targets Nearest Rock",
+        Callback = function(state)
+            _G.AutoOreEnabled = state
+            _G.AutoCaveEnabled = false
+            LastTargetRock = nil
+            SetCameraNoclip(state)
+
+            if not state and IsAlive() then
+                 lp.Character.HumanoidRootPart.Anchored = false
+                 SetCameraNoclip(false)
+                 ToggleFloat(false)
+                 ToggleGyro(false)
+                 SetNoclip(false)
+            end
+            if state then task.spawn(function() MineLoop("AutoOreEnabled", "Global") end) end
+        end
+    })
+
+    --------------------------------------------------------------------------------
+    -- FORGE TAB
+    --------------------------------------------------------------------------------
+
+    local ForgeTab = Window:Tab({Title = "Forge"})
+
+    local AutoForgeEnabled = false
+    local ForgeConnections = {}
+
+    local function cleanupMouse()
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0) 
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+    end
+
+    local function getInsetY()
+        if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
+            return 0 
+        else
+            return GuiService:GetGuiInset().Y 
+        end
+    end
+
+    local function clickVisualTarget(targetElement)
+        if not targetElement or not targetElement.Parent then return end
+        local absPos = targetElement.AbsolutePosition
+        local absSize = targetElement.AbsoluteSize
+        local centerX = absPos.X + (absSize.X / 2)
+        local centerY = absPos.Y + (absSize.Y / 2) + getInsetY()
+        
+        VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 1)
+        task.wait(0.05) 
+        VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 1)
+    end
+
+    -- Fixed handleHammerNote with better cleanup
+    local function handleHammerNote(noteObject)
+        local innerFrame = noteObject:WaitForChild("Frame", 5)
+        if not innerFrame then return end
+        local circle = innerFrame:WaitForChild("Circle", 5)
+        local border = innerFrame:WaitForChild("Border", 5)
+        if not circle or not border then return end
+
+        local targetSize = border.Size.X.Scale 
+        local con
+        con = RunService.RenderStepped:Connect(function()
+            if not AutoForgeEnabled or not noteObject or not noteObject.Parent or not circle or not circle.Parent then
+                if con then con:Disconnect() end 
+                return 
+            end
+            if circle.Size.X.Scale <= (targetSize + 0.02) then
+                if con then con:Disconnect() end
+                clickVisualTarget(border)
+            end
+        end)
+        table.insert(ForgeConnections, con)
+    end
+
+    local isMelting = false
+    -- Fixed runMeltLoop with better error handling
+    local function runMeltLoop()
+        if isMelting then return end
+        isMelting = true
+        
+        -- Check if ForgeUI exists
+        if not ForgeUI then 
+            isMelting = false
+            return 
+        end
+        
+        local MeltMinigame = ForgeUI:FindFirstChild("MeltMinigame")
+        if not MeltMinigame then 
+            isMelting = false
+            return 
+        end
+        
+        local Heater = MeltMinigame:WaitForChild("Heater", 2)
+        if not Heater then 
+            isMelting = false
+            return 
+        end
+        
+        local Handle = Heater:WaitForChild("Top", 2)
+        if not Handle then 
+            isMelting = false
+            return 
+        end
+        
+        local ProgressBar = MeltMinigame:WaitForChild("Bar", 2)
+        if not ProgressBar then 
+            isMelting = false
+            return 
+        end
+        
+        task.wait(0.3)
+        
+        while AutoForgeEnabled and MeltMinigame.Visible and ProgressBar and ProgressBar.Area and ProgressBar.Frame and 
+              ProgressBar.Area.AbsoluteSize.Y < (ProgressBar.Frame.AbsoluteSize.Y * 0.99) do
+            if not Handle or not Handle.Parent then
+                isMelting = false
+                return
+            end
+            
+            local handlePos = Handle.AbsolutePosition
+            local handleSize = Handle.AbsoluteSize
+            
+            local startX = handlePos.X + (handleSize.X / 2)
+            local startY = handlePos.Y + (handleSize.Y / 2) + getInsetY()
+            
+            local targetRawY = handlePos.Y + (handlePos.Y * 0.50)
+            local endY = targetRawY + (handleSize.Y / 2) + getInsetY()
+
+            VirtualInputManager:SendMouseMoveEvent(startX, startY, game)
+            task.wait(0.05) 
+
+            VirtualInputManager:SendMouseButtonEvent(startX, startY, 0, true, game, 1)
+            task.wait(0.05) 
+            
+            -- Fixed the for loop which had incorrect iteration
+            local steps = 10
+            for i = 1, steps do
+                local lerpY = startY + ((endY - startY) * (i / steps))
+                VirtualInputManager:SendMouseMoveEvent(startX, lerpY, game)
+                RunService.RenderStepped:Wait()
+            end
+            
+            task.wait(0.05) 
+
+            for i = 1, steps do
+                local lerpY = endY + ((startY - endY) * (i / steps)) 
+                VirtualInputManager:SendMouseMoveEvent(startX, lerpY, game)
+                RunService.RenderStepped:Wait()
+            end
+
+            task.wait(0.05)
+            
+            VirtualInputManager:SendMouseButtonEvent(startX, startY, 0, false, game, 1)
+            
+            task.wait(0.1)
+        end
+        isMelting = false
+    end
+
+    local isPouring = false
+    -- Fixed runPourLoop with better error handling
+    local function runPourLoop()
+        if isPouring then return end
+        isPouring = true
+        
+        -- Check if ForgeUI exists
+        if not ForgeUI then 
+            isPouring = false
+            return 
+        end
+        
+        local PourMinigame = ForgeUI:FindFirstChild("PourMinigame")
+        if not PourMinigame then 
+            isPouring = false
+            return 
+        end
+        
+        local Frame = PourMinigame:WaitForChild("Frame", 2)
+        if not Frame then 
+            isPouring = false
+            return 
+        end
+        
+        local PourArea = Frame:WaitForChild("Area", 2)
+        if not PourArea then 
+            isPouring = false
+            return 
+        end
+        
+        local PourLine = Frame:WaitForChild("Line", 2)
+        if not PourLine then 
+            isPouring = false
+            return 
+        end
+        
+        while AutoForgeEnabled and isPouring and PourMinigame.Visible do
+            if not PourArea or not PourArea.Parent or not PourLine or not PourLine.Parent then
+                isPouring = false
+                return
+            end
+            
+            local areaCenterY = PourArea.AbsolutePosition.Y + (PourArea.AbsoluteSize.Y / 2)
+            local lineCenterY = PourLine.AbsolutePosition.Y + (PourLine.AbsoluteSize.Y / 2)
+            if lineCenterY > areaCenterY then
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+            else
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+            end
+            RunService.RenderStepped:Wait()
+        end
+        cleanupMouse()
+        isPouring = false
+    end
+
+    -- Fixed clickMoldUntilGone with better error handling
+    local function clickMoldUntilGone(moldModel)
+        task.wait(0.2)
+        local maxAttempts = 50
+        local attempts = 0
+        
+        while AutoForgeEnabled and moldModel and moldModel.Parent and attempts < maxAttempts do
+            local pivotCFrame = moldModel:GetPivot()
+            local targetPosition = pivotCFrame.Position
+            local vectorPos, onScreen = Camera:WorldToViewportPoint(targetPosition)
+            if onScreen then
+                VirtualInputManager:SendMouseButtonEvent(vectorPos.X, vectorPos.Y, 0, true, game, 1)
+                task.wait(0.05)
+                VirtualInputManager:SendMouseButtonEvent(vectorPos.X, vectorPos.Y, 0, false, game, 1)
+            end
+            attempts = attempts + 1
+            task.wait(0.1) 
+        end
+    end
+
+    ForgeTab:Section({ Title = "Auto Forge" })
+
+    ForgeTab:Toggle({
+        Title = "Auto Forge Master",
+        Desc = "Auto Hammer, Melt, Pour & Mold",
+        Value = false,
+        Callback = function(state) 
+            AutoForgeEnabled = state
+            
+            -- Clean up existing connections first
+            for _, v in pairs(ForgeConnections) do 
+                if v then v:Disconnect() 
+            end
+            ForgeConnections = {}
+            isMelting = false
+            isPouring = false
+            cleanupMouse()
+            
+            if state then
+                -- Check if ForgeUI exists before setting up connections
+                if not ForgeUI then return end
+                
+                if ForgeUI:FindFirstChild("HammerMinigame") then
+                    local hammerC = ForgeUI.HammerMinigame.ChildAdded:Connect(function(child)
+                        if child.Name == "Frame" then handleHammerNote(child) end
+                    end)
+                    table.insert(ForgeConnections, hammerC)
+                    
+                    -- Check for existing notes
+                    for _, child in ipairs(ForgeUI.HammerMinigame:GetChildren()) do
+                        if child.Name == "Frame" then handleHammerNote(child) end
+                    end
+                end
+                
+                if ForgeUI:FindFirstChild("MeltMinigame") then
+                    local meltC = ForgeUI.MeltMinigame:GetPropertyChangedSignal("Visible"):Connect(function()
+                        if ForgeUI.MeltMinigame.Visible then task.spawn(runMeltLoop) end
+                    end)
+                    table.insert(ForgeConnections, meltC)
+                    
+                    -- Check if minigame is already visible
+                    if ForgeUI.MeltMinigame.Visible then task.spawn(runMeltLoop) end
+                end
+                
+                if ForgeUI:FindFirstChild("PourMinigame") then
+                    local pourC = ForgeUI.PourMinigame:GetPropertyChangedSignal("Visible"):Connect(function()
+                        if ForgeUI.PourMinigame.Visible then
+                            task.wait(0.5)
+                            if ForgeUI.PourMinigame.Visible and AutoForgeEnabled then 
+                                task.spawn(runPourLoop) 
+                            end
+                        else
+                            isPouring = false
+                        end
+                    end)
+                    table.insert(ForgeConnections, pourC)
+                    
+                    -- Check if minigame is already visible
+                    if ForgeUI.PourMinigame.Visible then 
+                        task.wait(0.5)
+                        if AutoForgeEnabled then task.spawn(runPourLoop) end
+                    end
+                end
+                
+                if Debris then
+                    local moldC = Debris.ChildAdded:Connect(function(child)
+                        if child.Name == "Mold" then clickMoldUntilGone(child) end
+                    end)
+                    table.insert(ForgeConnections, moldC)
+                    
+                    -- Check for existing molds
+                    for _, child in ipairs(Debris:GetChildren()) do
+                        if child.Name == "Mold" then clickMoldUntilGone(child) end
+                    end
+                end
+            end
+        end
+    })
+
+    --------------------------------------------------------------------------------
+    -- SELL TAB
+    --------------------------------------------------------------------------------
+
+    local SellTab = Window:Tab({Title = "Sell Ores"})
+    local sellDelay = 5
+    local selectedItems = {}
+
+    SellTab:Button({
+        Title = "Interact with Greedy Cey",
+        Desc = "Press this to sell ores from anywhere. If the selected ores arenot selling press this again.",
+        Callback = function()
+            local proximity = workspace:FindFirstChild("Proximity")
+            if not proximity then return end
+            
+            local greedyCey = proximity:FindFirstChild("Greedy Cey")
+            if not greedyCey then return end
+            
+            local args = { greedyCey }
+            local knitServices = ReplicatedStorage:FindFirstChild("Shared")
+            if not knitServices then return end
+            
+            local packages = knitServices:FindFirstChild("Packages")
+            if not packages then return end
+            
+            local knit = packages:FindFirstChild("Knit")
+            if not knit then return end
+            
+            local services = knit:FindFirstChild("Services")
+            if not services then return end
+            
+            local proximityService = services:FindFirstChild("ProximityService")
+            if not proximityService then return end
+            
+            local rf = proximityService:FindFirstChild("RF")
+            if not rf then return end
+            
+            local dialogue = rf:FindFirstChild("Dialogue")
+            if not dialogue then return end
+            
+            dialogue:InvokeServer(unpack(args))
+        end
+    })
+
+    local items = {
+        "Stone","Sand Stone","Copper","Iron","Tin","Silver","Gold",
+        "Mushroomite","Platinum","Bananite","Cardboardite","Aite","Poopite"
+    }
+
+    SellTab:Section({ Title = "Auto Sell Island 1" })
+    SellTab:Dropdown({
+        Title = "Select Items",
+        Values = items,
+        Value = {},
+        Multi = true,
+        Callback = function(v) selectedItems = v end
+    })
+
+    SellTab:Slider({
+        Title = "Sell Delay",
+        Value = {Min = 1, Max = 10, Default = 5},
+        Callback = function(v) sellDelay = v end
+    })
+
+    SellTab:Toggle({
+        Title = "Enable Sell",
+        Callback = function(state)
+            _G.AutoSell = state
+            if state then
+                task.spawn(function()
+                    while _G.AutoSell do
+                        if #selectedItems > 0 then
+                            for _, item in ipairs(selectedItems) do
+                                if not _G.AutoSell then break end
+                                pcall(function()
+                                    local basket = {[item] = 1}
+                                    local knitServices = ReplicatedStorage:FindFirstChild("Shared")
+                                    if not knitServices then return end
+                                    
+                                    local packages = knitServices:FindFirstChild("Packages")
+                                    if not packages then return end
+                                    
+                                    local knit = packages:FindFirstChild("Knit")
+                                    if not knit then return end
+                                    
+                                    local services = knit:FindFirstChild("Services")
+                                    if not services then return end
+                                    
+                                    local dialogueService = services:FindFirstChild("DialogueService")
+                                    if not dialogueService then return end
+                                    
+                                    local rf = dialogueService:FindFirstChild("RF")
+                                    if not rf then return end
+                                    
+                                    local runCommand = rf:FindFirstChild("RunCommand")
+                                    if not runCommand then return end
+                                    
+                                    runCommand:InvokeServer("SellConfirm", { Basket = basket })
+                                end)
+                            end
+                        end
+                        task.wait(sellDelay)
+                    end
+                end)
+            end
+        end
+    })
+
+    --------------------------------------------------------------------------------
+    -- POTION TAB (UNCHANGED)
+    --------------------------------------------------------------------------------
+    local PotionTab = Window:Tab({Title = "Potion"})
+
+    local NameMap = {
+        ["Health Potion 1"] = "HealthPotion1",
+        ["Miner Potion 1"]  = "MinerPotion1",
+        ["Speed Potion 1"]  = "MovementSpeedPotion1",
+        ["Luck Potion 1"]   = "LuckPotion1",
+        ["Damage Potion 1"] = "AttackDamagePotion1",
+    }
+    local potionList = {}
+    for _, v in pairs(NameMap) do table.insert(potionList, v) end
+    table.sort(potionList)
+    local selectedPotion = "HealthPotion1"
+    local buyAmount = 1
+
+    PotionTab:Section({ Title = "Purchase" })
+    PotionTab:Dropdown({ Title = "Select Potion", Values = potionList, Value = selectedPotion, Callback = function(v) selectedPotion = v end })
+    PotionTab:Slider({ Title = "Amount", Value = {Min = 1, Max = 10, Default = 1}, Callback = function(v) buyAmount = v end })
+    PotionTab:Button({
+        Title = "Buy Potion",
+        Callback = function()
+            local knitServices = ReplicatedStorage:FindFirstChild("Shared")
+            if not knitServices then return end
+            
+            local packages = knitServices:FindFirstChild("Packages")
+            if not packages then return end
+            
+            local knit = packages:FindFirstChild("Knit")
+            if not knit then return end
+            
+            local services = knit:FindFirstChild("Services")
+            if not services then return end
+            
+            local proximityService = services:FindFirstChild("ProximityService")
+            if not proximityService then return end
+            
+            local rf = proximityService:FindFirstChild("RF")
+            if not rf then return end
+            
+            local purchase = rf:FindFirstChild("Purchase")
+            if not purchase then return end
+            
+            purchase:InvokeServer(selectedPotion, buyAmount)
+        end
+    })
+
+    local displayList = {}
+    for k, _ in pairs(NameMap) do table.insert(displayList, k) end
+    table.sort(displayList)
+    local selectedDisplay = "Health Potion 1"
+
+    PotionTab:Section({ Title = "Consume" })
+    PotionTab:Dropdown({ Title = "Select Potion", Values = displayList, Value = selectedDisplay, Callback = function(v) selectedDisplay = v end })
+    PotionTab:Button({
+        Title = "Use Potion",
+        Callback = function()
+            local real = NameMap[selectedDisplay]
+            if real then 
+                local knitServices = ReplicatedStorage:FindFirstChild("Shared")
+                if not knitServices then return end
+                
+                local packages = knitServices:FindFirstChild("Packages")
+                if not packages then return end
+                
+                local knit = packages:FindFirstChild("Knit")
+                if not knit then return end
+                
+                local services = knit:FindFirstChild("Services")
+                if not services then return end
+                
+                local toolService = services:FindFirstChild("ToolService")
+                if not toolService then return end
+                
+                local rf = toolService:FindFirstChild("RF")
+                if not rf then return end
+                
+                local toolActivated = rf:FindFirstChild("ToolActivated")
+                if not toolActivated then return end
+                
+                toolActivated:InvokeServer(real)
+            end
+        end
+    })
+
+    --------------------------------------------------------------------------------
+    -- TELEPORT TAB
+    --------------------------------------------------------------------------------
+    local TeleportTab = Window:Tab({Title = "Teleport"})
+
+    local TeleportLocations = {
+        ["Spawn"] = CFrame.new(-220, 37, 173),
+        ["Enhancer"] = CFrame.new(-260, 20, 33),
+        ["Rune Maker"] = CFrame.new(-270, 20, 138),
+        ["Wizard"] = CFrame.new(-20, 81, -350),
+    }
+    local SelectedLocation = "Spawn"
+
+    local function DoTeleport()
+        if TeleportLocations[SelectedLocation] then
+            TweenTo(TeleportLocations[SelectedLocation])
+            task.wait(0.5)
+            ToggleFloat(false)
+        end
+    end
+
+    TeleportTab:Dropdown({
+        Title = "Location",
+        Values = {"Spawn", "Enhancer", "Rune Maker", "Wizard"},
+        Value = "Spawn",
+        Callback = function(v) SelectedLocation = v if _G.TeleportToggleActive then DoTeleport() end end
+    })
+
+    TeleportTab:Toggle({
+        Title = "Auto Teleport",
+        Callback = function(state)
+            _G.TeleportToggleActive = state
+            if state then DoTeleport() end
+        end
+    })
+
+    TeleportTab:Space()
+    TeleportTab:Button({
+        Title = "Go to Forgotten Kingdom",
+        Callback = function()
+            local knitServices = ReplicatedStorage:FindFirstChild("Shared")
+            if not knitServices then return end
+            
+            local packages = knitServices:FindFirstChild("Packages")
+            if not packages then return end
+            
+            local knit = packages:FindFirstChild("Knit")
+            if not knit then return end
+            
+            local services = knit:FindFirstChild("Services")
+            if not services then return end
+            
+            local portalService = services:FindFirstChild("PortalService")
+            if not portalService then return end
+            
+            local rf = portalService:FindFirstChild("RF")
+            if not rf then return end
+            
+            local teleportToIsland = rf:FindFirstChild("TeleportToIsland")
+            if not teleportToIsland then return end
+            
+            teleportToIsland:InvokeServer("Forgotten Kingdom")
+        end
+    })
+
+    --------------------------------------------------------------------------------
+    -- MSC
+    --------------------------------------------------------------------------------
+    local MSCTab = Window:Tab({Title = "MSC"})
+
+    local afkConn = nil
+
+    local function setAntiAFK(state)
+        if state then
+            if afkConn then afkConn:Disconnect() end
+            afkConn = lp.Idled:Connect(function()
+                game:GetService("VirtualUser"):Button2Down(Vector2.zero, workspace.CurrentCamera.CFrame)
+                task.wait(0.2)
+                game:GetService("VirtualUser"):Button2Up(Vector2.zero, workspace.CurrentCamera.CFrame)
+            end)
+        else
+            if afkConn then 
+                afkConn:Disconnect() 
+                afkConn = nil
+            end
+        end
+    end
+
+    setAntiAFK(true)
+
+    MSCTab:Toggle({
+        Title = "Anti-AFK",
+        Value = true,
+        Callback = function(state)
+            setAntiAFK(state)
+        end
+    })
+
+    --------------------------------------------------------------------------------
+    -- HIDE NAME LOGIC (ADDED)
+    --------------------------------------------------------------------------------
+    local isNameHidden = false
+
+    local function updateNameVisibility(character)
+        if not character then return end
+        task.wait(0.2) 
+        
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        local head = character:FindFirstChild("Head")
+
+        if isNameHidden then
+            if humanoid then
+                humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+                humanoid.NameOcclusion = Enum.NameOcclusion.OccludeAll
+            end
+            if head then
+                for _, v in pairs(head:GetChildren()) do
+                    if v:IsA("BillboardGui") or v:IsA("SurfaceGui") then
+                        v.Enabled = false
+                    end
+                end
+            end
+        else
+            if humanoid then
+                humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewer
+            end
+            if head then
+                for _, v in pairs(head:GetChildren()) do
+                    if v:IsA("BillboardGui") or v:IsA("SurfaceGui") then
+                        v.Enabled = true
+                    end
+                end
+            end
+        end
+    end
+
+    MSCTab:Section({ Title = "Character" })
+    MSCTab:Toggle({
+        Title = "Hide Name",
+        Description = "Hides overhead name (Note: Usually Client-Sided)",
+        Callback = function(state)
+            isNameHidden = state
+            updateNameVisibility(lp.Character)
+        end
+    })
+
+    lp.CharacterAdded:Connect(function(newChar)
+        if isNameHidden then
+            task.wait(1) 
+            updateNameVisibility(newChar)
+        end
+    end)
+
+    --------------------------------------------------------------------------------
+    -- CONFIGURATION MANAGEMENT UI
+    --------------------------------------------------------------------------------
+    MSCTab:Section({ Title = "Configuration" })
+    MSCTab:Button({
+        Title = "Save Configuration",
+        Description = "Saves all current settings",
+        Callback = function()
+            SaveConfig()
+        end
+    })
+
+    MSCTab:Button({
+        Title = "Load Configuration",
+        Description = "Loads saved settings",
+        Callback = function()
+            if LoadConfig() then
+                -- Apply loaded settings to UI elements
+                task.wait(0.1)
+                
+                -- Update Farm Tab
+                Window:Notification({
+                    Title = "Info",
+                    Text = "Please re-open tabs to see loaded settings",
+                    Duration = 3
+                })
+            end
+        end
+    })
+
+    MSCTab:Button({
+        Title = "Reset to Defaults",
+        Description = "Resets all settings to default values",
+        Callback = function()
+            _G.FarmPosition = "Below"
+            _G.TargetPriority = "Nearest"
+            _G.SelectedNPCs = { "Zombie" }
+            _G.SelectedCave = "Start Cave"
+            _G.SelectedGlobalOres = { "Pebble" }
+            sellDelay = 5
+            selectedItems = {}
+            selectedPotion = "HealthPotion1"
+            buyAmount = 1
+            selectedDisplay = "Health Potion 1"
+            SelectedLocation = "Spawn"
+            
+            Window:Notification({
+                Title = "Success",
+                Text = "Settings reset to defaults!",
+                Duration = 3
+            })
+        end
+    })
+
+    --------------------------------------------------------------------------------
+    -- KEY SYSTEM INFO
+    --------------------------------------------------------------------------------
+    MSCTab:Section({ Title = "Key Information" })
+    MSCTab:Label({
+        Title = "Current Key: " .. (KeySystem.CurrentKey or "Not authenticated"),
+        Color = KeySystem.IsAuthenticated and Color3.new(0.5, 1, 0.5) or Color3.new(1, 0.5, 0.5)
+    })
+    
+    MSCTab:Label({
+        Title = "Status: " .. (KeySystem.IsAuthenticated and "✓ Authenticated" or "✗ Not Authenticated"),
+        Color = KeySystem.IsAuthenticated and Color3.new(0.5, 1, 0.5) or Color3.new(1, 0.5, 0.5)
+    })
+    
+    MSCTab:Button({
+        Title = "Re-enter Key",
+        Description = "Enter a new license key",
+        Callback = function()
+            KeySystem.IsAuthenticated = false
+            KeySystem.CurrentKey = nil
+            if isfile(KeySystem.KeyFile) then
+                delfile(KeySystem.KeyFile)
+            end
+            Window:Destroy()
+            CreateKeyUI()
+        end
+    })
+
+    -- Auto-load configuration on script start
+    task.wait(1)
+    LoadConfig()
+end
+
+-- Start the key system
+if KeySystem.Enabled then
+    CreateKeyUI()
+else
+    -- If key system is disabled, run the main script directly
+    MainScript()
+end
