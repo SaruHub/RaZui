@@ -1,0 +1,385 @@
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+
+local Window = WindUI:CreateWindow({
+    Title = "RaZui Hub",
+    Folder = "MySuperHub",
+    Size = UDim2.fromOffset(580, 460),
+    MinSize = Vector2.new(560, 350),
+    MaxSize = Vector2.new(850, 560),
+    Transparent = true,
+    Theme = "Dark",
+    Resizable = true,
+    SideBarWidth = 150,
+    BackgroundImageTransparency = 0.42,
+    HideSearchBar = true,
+    ScrollBarEnabled = false,
+})
+
+Window:SetToggleKey(Enum.KeyCode.K)
+Window:EditOpenButton({
+    Title = "Open UI",
+    CornerRadius = UDim.new(0,16),
+    StrokeThickness = 2,
+    Color = ColorSequence.new(Color3.fromHex("FF0F7B"), Color3.fromHex("F89B29")),
+    OnlyMobile = false,
+    Enabled = true,
+    Draggable = true,
+})
+
+-- // Services
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- // CONFIGURATION
+local PriorityList = {
+    High    = {"Goblin Mage", "Ranged Orc"},   
+    Medium  = {"Golem", "Spider"},       
+    Low     = {"Orc"} 
+}
+
+local NpcOffsets = {
+    ["Golem"] = Vector3.new(20, 15, 0),        
+    ["Spider"] = Vector3.new(30, 15, 0),       
+    ["Goblin Mage"] = Vector3.new(0, 10, 0),  
+    ["Default"] = Vector3.new(10, 15, 0)       
+}
+
+-- // Variables
+local isFarming = false
+local currentPriority = "None"
+local currentTarget = nil
+local loopConnection = nil
+local Remote = ReplicatedStorage:WaitForChild("BridgeNet2"):WaitForChild("dataRemoteEvent")
+
+-- // Skill Toggles
+local useSkill1 = true
+local useSkill2 = true
+local useSkill3 = true
+local useSkillF = true 
+
+-- // Cooldown tracking
+local lastUltimateTime = 0
+local lastTapButtonTime = 0
+
+-- // Rotation Logic
+local rotationAngle = 0
+local ROTATION_SPEED_RADS = 1.5 
+
+-- // QTE tracking
+local isQTEActive = false
+
+-- // Create Tab
+local FarmTab = Window:Tab({
+    Title = "Main Farm",
+})
+
+-- // --- SAFE CHECKS --- //
+local function isPlayerValid()
+    return LocalPlayer.Character 
+    and LocalPlayer.Character:FindFirstChild("Humanoid") 
+    and LocalPlayer.Character.Humanoid.Health > 0
+    and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+end
+
+local function isValidTarget(enemy)
+    return enemy 
+    and enemy.Parent 
+    and enemy:FindFirstChild("Humanoid") 
+    and enemy.Humanoid.Health > 0 
+    and enemy:FindFirstChild("HumanoidRootPart")
+end
+
+local function getTargetOffset(npcName)
+    if NpcOffsets[npcName] then return NpcOffsets[npcName] end
+    return NpcOffsets["Default"]
+end
+
+-- // --- SAFE INPUT HANDLERS --- //
+local function safeClickGui(guiObject)
+    if not isPlayerValid() then return end
+    
+    if guiObject and guiObject:IsDescendantOf(game) and guiObject.Visible then
+        local pos = guiObject.AbsolutePosition
+        local size = guiObject.AbsoluteSize
+        local viewport = Camera.ViewportSize
+        
+        local centerX = pos.X + (size.X / 2)
+        local centerY = pos.Y + (size.Y / 2)
+
+        if centerX > 50 and centerY > 50 and centerX < (viewport.X - 10) and centerY < (viewport.Y - 10) then
+            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 1)
+            task.wait() 
+            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 1)
+        end
+    end
+end
+
+local function safePressKey(key)
+    if not isPlayerValid() then return end
+    VirtualInputManager:SendKeyEvent(true, key, false, game)
+    task.wait() 
+    VirtualInputManager:SendKeyEvent(false, key, false, game)
+end
+
+-- // --- THREAD 1: QTE / ULT MANAGER --- //
+local function manageUltInputs()
+    task.spawn(function()
+        while isFarming do
+            if isPlayerValid() then
+                pcall(function()
+                    local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
+                    local ScreenGui = PlayerGui and PlayerGui:FindFirstChild("ScreenGuiIngame")
+                    local UltFrame = ScreenGui and ScreenGui:FindFirstChild("UltFrame")
+                    
+                    if UltFrame then
+                        local Bar = UltFrame:FindFirstChild("Bar")
+                        if Bar then
+                            local UIGradient = Bar:FindFirstChild("UIGradient")
+                            
+                            if UIGradient then
+                                local currentOffset = UIGradient.Offset
+                                
+                                -- Check if offset is at (1, 0) - QTE Active
+                                if currentOffset.X >= 1 and currentOffset.Y <= 0.1 then
+                                    isQTEActive = true
+                                    
+                                    local currentTime = tick()
+                                    if currentTime - lastUltimateTime > 0.5 then 
+                                        safePressKey(Enum.KeyCode.G)
+                                        lastUltimateTime = currentTime
+                                    end
+                                    
+                                    local TapButton = Bar:FindFirstChild("TextButton")
+                                    if TapButton then 
+                                        local tTime = tick()
+                                        if tTime - lastTapButtonTime > 0.5 then 
+                                            safeClickGui(TapButton) 
+                                            lastTapButtonTime = tTime
+                                        end
+                                    end
+                                else
+                                    if isQTEActive then isQTEActive = false end
+                                end
+                            end
+                        end
+                    end
+                end)
+            end
+            task.wait(0.1)
+        end
+    end)
+end
+
+-- // --- THREAD 2: SKILL SPAMMER (GENERIC F & X) --- //
+local function manageSkills()
+    task.spawn(function()
+        while isFarming do
+            if isPlayerValid() and currentPriority ~= "None" and not isQTEActive then
+                pcall(function()
+                    local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
+                    local ScreenGui = PlayerGui and PlayerGui:FindFirstChild("ScreenGuiIngame")
+                    local UltFrame = ScreenGui and ScreenGui:FindFirstChild("UltFrame")
+                    
+                    if UltFrame then
+                        -- A. HANDLE 1, 2, 3 (NUMBER CHECK)
+                        local SkillBar = UltFrame:FindFirstChild("SkillBar")
+                        if SkillBar then
+                            for _, item in pairs(SkillBar:GetChildren()) do
+                                if item:IsA("ImageLabel") or item:IsA("Frame") then
+                                    local numLabel = item:FindFirstChild("Number")
+                                    local cooldownImg = item:FindFirstChild("ImageLabel")
+
+                                    if numLabel and numLabel:IsA("TextLabel") and cooldownImg then
+                                        if cooldownImg.Visible == false then
+                                            local n = numLabel.Text
+                                            if n == "1" and useSkill1 then
+                                                Remote:FireServer(unpack({{Enum.KeyCode.One, "\026"}}))
+                                            elseif n == "2" and useSkill2 then
+                                                Remote:FireServer(unpack({{Enum.KeyCode.Two, "\026"}}))
+                                            elseif n == "3" and useSkill3 then
+                                                Remote:FireServer(unpack({{Enum.KeyCode.Three, "\026"}}))
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+
+                        -- B. HANDLE SPECIAL SKILLS (Generic F & X)
+                        if useSkillF then
+                            -- Loop through ALL frames in UltFrame (TimeStop, CoyotePistol, UltimateSkill, etc)
+                            for _, skillFrame in pairs(UltFrame:GetChildren()) do
+                                if skillFrame:IsA("Frame") and skillFrame.Visible then
+                                    
+                                    local cooldown = skillFrame:FindFirstChild("Cooldown")
+                                    
+                                    if cooldown then
+                                        -- CHECK FOR "F" SKILL
+                                        -- Logic: Look for "UltimateText" == "F"
+                                        local ultText = skillFrame:FindFirstChild("UltimateText")
+                                        if ultText and ultText:IsA("TextLabel") and ultText.Text == "F" then
+                                            if cooldown.Visible == false then
+                                                Remote:FireServer(unpack({{Enum.KeyCode.F, "\026"}}))
+                                            end
+                                        end
+
+                                        -- CHECK FOR "X" SKILL
+                                        -- Logic: Look for "Keybind" == "X"
+                                        local keybind = skillFrame:FindFirstChild("Keybind")
+                                        if keybind and keybind:IsA("TextLabel") and keybind.Text == "X" then
+                                            if cooldown.Visible == false then
+                                                Remote:FireServer(unpack({{Enum.KeyCode.X, "\026"}}))
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                        
+                    end
+                end)
+            end
+            task.wait(0.1) 
+        end
+    end)
+end
+
+-- // --- UI SECTIONS --- //
+
+local FarmToggle = FarmTab:Toggle({
+    Title = "Auto Attack NPCs",
+    Desc = "Generic F/X Support + Constant Rotation",
+    Value = false, 
+    Callback = function(state) 
+        isFarming = state
+        currentTarget = nil 
+        currentPriority = "None"
+        isQTEActive = false
+        
+        if not state then
+            LocalPlayer.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.Zoom
+            if loopConnection then loopConnection:Disconnect() loopConnection = nil end
+            
+            if isPlayerValid() then
+                LocalPlayer.Character.Humanoid.PlatformStand = false
+                for _, v in pairs(LocalPlayer.Character:GetChildren()) do
+                    if v:IsA("BasePart") then v.CanCollide = true end
+                end
+            end
+        else
+            LocalPlayer.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.Invisicam
+            
+            manageUltInputs()
+            manageSkills()
+
+            loopConnection = RunService.RenderStepped:Connect(function(dt)
+                if not isPlayerValid() then return end
+
+                pcall(function()
+                    local Character = LocalPlayer.Character
+                    local root = Character.HumanoidRootPart
+                    local hum = Character.Humanoid
+                    
+                    local NpcFolder = workspace:FindFirstChild("NPCs")
+                    if not NpcFolder then return end
+                    
+                    local children = NpcFolder:GetChildren()
+                    local foundTarget = nil
+                    local foundPrio = "None"
+
+                    -- PRIORITY SCAN - Only scan if QTE is not active
+                    if not isQTEActive then
+                        if not foundTarget then
+                            for _, enemy in pairs(children) do
+                                if isValidTarget(enemy) and table.find(PriorityList.High, enemy.Name) then
+                                    foundTarget = enemy; foundPrio = "High"; break
+                                end
+                            end
+                        end
+                        if not foundTarget then
+                            for _, enemy in pairs(children) do
+                                if isValidTarget(enemy) and table.find(PriorityList.Medium, enemy.Name) then
+                                    foundTarget = enemy; foundPrio = "Medium"; break
+                                end
+                            end
+                        end
+                        if not foundTarget then
+                            for _, enemy in pairs(children) do
+                                if isValidTarget(enemy) and table.find(PriorityList.Low, enemy.Name) then
+                                    foundTarget = enemy; foundPrio = "Low"; break
+                                end
+                            end
+                        end
+                        if not foundTarget then
+                            for _, enemy in pairs(children) do
+                                if isValidTarget(enemy) then
+                                    foundTarget = enemy; foundPrio = "Other"; break
+                                end
+                            end
+                        end
+                    end
+
+                    currentTarget = foundTarget
+                    currentPriority = foundPrio
+
+                    -- MOVEMENT - Only move if QTE is not active
+                    if currentTarget and not isQTEActive then
+                        local enemyRoot = currentTarget.HumanoidRootPart
+                        local offset = getTargetOffset(currentTarget.Name)
+                        
+                        enemyRoot.Velocity = Vector3.zero
+                        enemyRoot.AssemblyLinearVelocity = Vector3.zero
+                        enemyRoot.AssemblyAngularVelocity = Vector3.zero
+                        
+                        hum.PlatformStand = true
+                        
+                        -- ROTATION LOGIC (Medium Priority)
+                        if currentPriority == "Medium" then
+                            rotationAngle = rotationAngle + (ROTATION_SPEED_RADS * dt) 
+                            if rotationAngle > math.pi * 2 then rotationAngle = rotationAngle - math.pi * 2 end
+                            
+                            local radius = offset.X
+                            local x = math.cos(rotationAngle) * radius
+                            local z = math.sin(rotationAngle) * radius
+                            
+                            local targetCFrame = enemyRoot.CFrame * CFrame.new(x, offset.Y, z)
+                            root.CFrame = CFrame.new(targetCFrame.Position, enemyRoot.Position)
+                        else
+                            -- Normal Position
+                            local targetCFrame = enemyRoot.CFrame * CFrame.new(offset)
+                            root.CFrame = CFrame.new(targetCFrame.Position, enemyRoot.Position)
+                        end
+                        
+                        root.Velocity = Vector3.zero
+                        
+                        Remote:FireServer(unpack({{
+                            { state = Enum.HumanoidStateType.PlatformStanding, hitcount = 2 },
+                            "\f"
+                        }}))
+                    else
+                        -- Idle
+                        if isQTEActive then
+                            hum.PlatformStand = false
+                        else
+                            currentPriority = "None"
+                            hum.PlatformStand = false
+                        end
+                    end
+                end)
+            end)
+        end
+    end
+})
+
+local SkillSection = FarmTab:Section({ Title = "Skill Configuration" })
+
+SkillSection:Toggle({ Title = "Use Skill 1", Value = true, Callback = function(v) useSkill1 = v end })
+SkillSection:Toggle({ Title = "Use Skill 2", Value = true, Callback = function(v) useSkill2 = v end })
+SkillSection:Toggle({ Title = "Use Skill 3", Value = true, Callback = function(v) useSkill3 = v end })
+SkillSection:Toggle({ Title = "Use Skill F & X", Value = true, Callback = function(v) useSkillF = v end })
+
+FarmTab:Select()
