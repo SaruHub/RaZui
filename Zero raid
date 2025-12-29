@@ -1,0 +1,553 @@
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+
+-- // Services // --
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+-- // Local Player & Remotes // --
+local LocalPlayer = Players.LocalPlayer
+local NetworkComm = ReplicatedStorage:WaitForChild("NetworkComm")
+local SkillService = NetworkComm:WaitForChild("SkillService")
+local CombatService = NetworkComm:WaitForChild("CombatService")
+local RaidsService = NetworkComm:WaitForChild("RaidsService")
+
+local StartSkillMethod = SkillService:WaitForChild("StartSkilll_Method")
+local DamageMethod = CombatService:WaitForChild("DamageCharacter_Method")
+local RetryRaidMethod = RaidsService:WaitForChild("RetryRaid_Method")
+
+-- // Window Setup // --
+local Window = WindUI:CreateWindow({
+    Title = "RaZui Hub",
+    Folder = "MySuperHub",
+    Size = UDim2.fromOffset(580, 460),
+    MinSize = Vector2.new(560, 350),
+    MaxSize = Vector2.new(850, 560),
+    Transparent = true,
+    Theme = "Dark",
+    Resizable = true,
+    SideBarWidth = 150,
+    BackgroundImageTransparency = 0.42,
+    HideSearchBar = true,
+    ScrollBarEnabled = false,
+})
+
+Window:SetToggleKey(Enum.KeyCode.K)
+Window:EditOpenButton({
+    Title = "Open UI",
+    CornerRadius = UDim.new(0,16),
+    StrokeThickness = 2,
+    Color = ColorSequence.new(Color3.fromHex("FF0F7B"), Color3.fromHex("F89B29")),
+    OnlyMobile = false,
+    Enabled = true,
+    Draggable = true,
+})
+
+-- // Global State Variables // --
+getgenv().FastAttackEnabled = false
+getgenv().AutoRetryEnabled = false
+
+-- // ------------------------------------------------------ // --
+-- // TELEPORT LOGIC (CUSTOM)
+-- // ------------------------------------------------------ // --
+local function PerformCustomTeleport(targetCFrame)
+    local charsFolder = Workspace:WaitForChild("Characters")
+    local clientFolder = charsFolder:WaitForChild("Client")
+    local serverPlayersFolder = charsFolder:WaitForChild("Server"):WaitForChild("Players")
+
+    -- 1. Get the Client Character (Dynamic Name Check)
+    local myClientChar = nil
+    for _, v in pairs(clientFolder:GetChildren()) do
+        if v.Name:find(LocalPlayer.Name) then
+            myClientChar = v
+            break
+        end
+    end
+
+    if not myClientChar then return end
+    local clientHRP = myClientChar:FindFirstChild("HumanoidRootPart")
+    if not clientHRP then return end
+
+    -- Check if we are already close to avoid spamming TP
+    if (clientHRP.Position - targetCFrame.Position).Magnitude < 15 then
+        return
+    end
+
+    -- 2. Find the Matching Server Character
+    local myServerChar = nil
+    for _, potentialChar in pairs(serverPlayersFolder:GetChildren()) do
+        local serverHRP = potentialChar:FindFirstChild("HumanoidRootPart")
+        if serverHRP then
+            -- Calculate distance between Client HRP and this Server HRP
+            local distance = (clientHRP.Position - serverHRP.Position).Magnitude
+            if distance < 5 then -- Tolerance check
+                myServerChar = potentialChar
+                break
+            end
+        end
+    end
+
+    -- 3. Execute Teleport
+    if myServerChar then
+        local serverHRP = myServerChar:FindFirstChild("HumanoidRootPart")
+        if serverHRP then
+            serverHRP.CFrame = targetCFrame
+        end
+    end
+
+    -- Teleport the client character (Visual sync)
+    if clientHRP then
+        clientHRP.CFrame = targetCFrame
+    end
+end
+
+local function CheckBossTeleport()
+    local success, err = pcall(function()
+        local raidHud = LocalPlayer.PlayerGui:FindFirstChild("RaidHUD")
+        if not raidHud then return end
+        
+        local contentFrame = raidHud:FindFirstChild("ContentFrame")
+        if not contentFrame then return end
+
+        local frame = contentFrame:FindFirstChild("Frame")
+        if not frame then return end
+
+        local textLabel = frame:FindFirstChild("TextLabel")
+        if not textLabel then return end
+
+        local text = textLabel.Text
+
+        if text:find("Sorcerer Killer") then
+            -- Sorcerer Killer CFrame
+            local cf = CFrame.new(-5194, 30, 2253, 0, 0, 1, 0, 1, -0, -1, 0, 0)
+            PerformCustomTeleport(cf)
+        elseif text:find("Jogo") then
+            -- Jogo CFrame
+            local cf = CFrame.new(-336, 185, -25, 1, -0, -1, 0, 1, -0, 1, -0, 1)
+            PerformCustomTeleport(cf)
+        end
+    end)
+end
+
+-- // ------------------------------------------------------ // --
+-- // FAST ATTACK FUNCTIONS
+-- // ------------------------------------------------------ // --
+local CONFIG = {
+    Range = 500,
+    HitsPerAttack = 3, 
+    AttackSpeed = 0.05,
+    RegisterDelay = 0.05, 
+}
+
+local function GetClientHealth(serverNPC)
+    local serverRoot = serverNPC:FindFirstChild("HumanoidRootPart") or serverNPC.PrimaryPart
+    if not serverRoot then return 0 end 
+
+    local clientFolder = Workspace:FindFirstChild("Characters") and Workspace.Characters:FindFirstChild("Client")
+    if not clientFolder then return 100 end 
+
+    local closestClientModel = nil
+    local closestDist = 5 
+
+    for _, model in pairs(clientFolder:GetChildren()) do
+        if model:IsA("Model") then
+            local root = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart
+            if root then
+                local dist = (root.Position - serverRoot.Position).Magnitude
+                if dist < closestDist then
+                    closestDist = dist
+                    closestClientModel = model
+                end
+            end
+        end
+    end
+
+    if closestClientModel then
+        local bg = closestClientModel:FindFirstChild("BillboardGui")
+        if bg then
+            local frame = bg:FindFirstChild("Frame")
+            if frame then
+                local label = frame:FindFirstChild("TextLabel")
+                if label then
+                    local text = label.Text 
+                    local split = string.split(text, "/")
+                    local current = tonumber(split[1])
+                    if current then return current end
+                end
+            end
+        end
+    end
+    return 100 
+end
+
+local function GetMyServerCharacter()
+    local myClientChar = nil
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        myClientChar = LocalPlayer.Character
+    else
+        local clientFolder = Workspace:FindFirstChild("Characters") and Workspace.Characters:FindFirstChild("Client")
+        if clientFolder then
+            for _, v in pairs(clientFolder:GetChildren()) do
+                if string.find(v.Name, LocalPlayer.Name) and v:FindFirstChild("HumanoidRootPart") then
+                    myClientChar = v
+                    break
+                end
+            end
+        end
+    end
+
+    if not myClientChar then return nil end
+    local myPos = myClientChar.HumanoidRootPart.Position
+
+    local serverPlayers = Workspace:WaitForChild("Characters"):WaitForChild("Server"):WaitForChild("Players")
+    for _, model in pairs(serverPlayers:GetChildren()) do
+        if model:IsA("Model") and model:FindFirstChild("HumanoidRootPart") then
+            local dist = (model.HumanoidRootPart.Position - myPos).Magnitude
+            if dist < 5 then return model end
+        end
+    end
+    return nil
+end
+
+local function GetTargets(myRootPos)
+    local npcsFolder = Workspace:WaitForChild("Characters"):WaitForChild("Server"):FindFirstChild("NPCs")
+    if not npcsFolder then return {} end
+
+    local targets = {}
+    for _, npc in pairs(npcsFolder:GetChildren()) do
+        if npc:IsA("Model") then
+            local root = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
+            if root then
+                local dist = (root.Position - myRootPos).Magnitude
+                if dist <= CONFIG.Range then
+                    if GetClientHealth(npc) > 0 then
+                        table.insert(targets, npc)
+                    end
+                end
+            end
+        end
+    end
+    return targets
+end
+
+-- // ------------------------------------------------------ // --
+-- // UI TABS
+-- // ------------------------------------------------------ // --
+
+local MainTab = Window:Tab({ Title = "Main" })
+MainTab:Select()
+
+-- // Feature 1: Fast Attack Toggle // --
+MainTab:Toggle({
+    Title = "Fast Attack / Aura",
+    Desc = "Attacks enemies & TPs to boss automatically.",
+    Flag = "FastAttack", -- <--- Added Flag here
+    Callback = function(state) 
+        getgenv().FastAttackEnabled = state
+        
+        if state then
+            task.spawn(function()
+                while getgenv().FastAttackEnabled do
+                    -- 1. Check for Boss and Teleport
+                    CheckBossTeleport()
+
+                    -- 2. Run Fast Attack Logic
+                    local success, err = pcall(function()
+                        local myServerChar = GetMyServerCharacter()
+                        if not myServerChar then 
+                            task.wait(0.5)
+                            return 
+                        end
+            
+                        local myRoot = myServerChar:FindFirstChild("HumanoidRootPart") or myServerChar.PrimaryPart
+                        if not myRoot then return end
+            
+                        local targetList = GetTargets(myRoot.Position)
+                        
+                        if #targetList > 0 then
+                            local closestEnemy = targetList[1]
+                            local closestDist = 999
+                            for _, enemy in pairs(targetList) do
+                                local r = enemy:FindFirstChild("HumanoidRootPart")
+                                if r then
+                                    local d = (r.Position - myRoot.Position).Magnitude
+                                    if d < closestDist then
+                                        closestDist = d
+                                        closestEnemy = enemy
+                                    end
+                                end
+                            end
+            
+                            local closestRoot = closestEnemy and closestEnemy:FindFirstChild("HumanoidRootPart")
+                            
+                            if closestRoot then
+                                task.spawn(function()
+                                    local dir = (closestRoot.Position - myRoot.Position).Unit
+                                    local vecArg = Vector3.new(dir.X, 0, dir.Z)
+                                    StartSkillMethod:InvokeServer(unpack({ "Punch", myServerChar, vecArg, 1, 1 }))
+                                end)
+            
+                                task.wait(CONFIG.RegisterDelay)
+            
+                                local finalTargets = {}
+                                for _, enemy in pairs(targetList) do
+                                    if GetClientHealth(enemy) > 0 then
+                                        table.insert(finalTargets, enemy)
+                                    end
+                                end
+            
+                                if #finalTargets > 0 then
+                                    local windowID = myServerChar.Name .. "_Punch"
+                                    local damageData = {
+                                        ["SkillID"] = "Punch",
+                                        ["WindowID"] = windowID,
+                                        ["LocalCharacter"] = myServerChar,
+                                        ["Origin"] = myRoot.CFrame, 
+                                        ["CanParry"] = true,
+                                        ["Parries"] = {}
+                                    }
+            
+                                    for i = 1, CONFIG.HitsPerAttack do
+                                        task.spawn(function()
+                                            DamageMethod:InvokeServer(unpack({ finalTargets, true, damageData }))
+                                        end)
+                                    end
+                                end
+                            end
+                        end
+                    end)
+            
+                    if not success then warn("Aura Error:", err) end
+                    task.wait(CONFIG.AttackSpeed)
+                end
+            end)
+        end
+    end
+})
+
+-- // Feature 2: Auto Retry Raid Toggle // --
+MainTab:Toggle({
+    Title = "Auto Retry Raid",
+    Desc = "Automatically clicks retry when the raid fail/win screen appears.",
+    Flag = "AutoRetry", -- <--- Added Flag here
+    Callback = function(state)
+        getgenv().AutoRetryEnabled = state
+        
+        if state then
+            task.spawn(function()
+                local hasFired = false
+                while getgenv().AutoRetryEnabled do
+                    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+                    if playerGui then
+                        local raidHud = playerGui:FindFirstChild("RaidHUD")
+                        if raidHud and raidHud:FindFirstChild("Frame") and raidHud.Frame.Visible then
+                            if not hasFired then
+                                RetryRaidMethod:InvokeServer()
+                                hasFired = true
+                                task.wait(1) 
+                            end
+                        else
+                            hasFired = false
+                        end
+                    end
+                    task.wait(0.5)
+                end
+            end)
+        end
+    end
+})
+
+-- ==========================================
+-- SETTINGS TAB (Configuration System)
+-- ==========================================
+
+local SettingsTab = Window:Tab({ Title = "Settings" })
+local ConfigManager = Window.ConfigManager
+local ConfigFolder = "MySuperHub/RaZui Hub"
+
+-- Helper to safely get config files
+local function GetConfigs()
+    -- Ensure paths exist
+    if not isfolder("MySuperHub") then makefolder("MySuperHub") end
+    if not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
+    
+    local files = {}
+    local success, list = pcall(listfiles, ConfigFolder)
+    if success and list then
+        for _, file in ipairs(list) do
+            -- Handle both full paths and relative paths
+            local fileName = file:match("([^/\\]+)%.json$")
+            if fileName then 
+                table.insert(files, fileName)
+            end
+        end
+    end
+    return files
+end
+
+local ConfigNameInput = ""
+local SelectedConfig = nil
+
+SettingsTab:Section({ Title = "Create New Config" })
+SettingsTab:Input({
+    Title = "Config Name",
+    Default = "Config1",
+    Callback = function(text) ConfigNameInput = text end
+})
+
+local ConfigDropdown -- Forward declare
+
+SettingsTab:Button({
+    Title = "Create & Save Config",
+    Callback = function()
+        if ConfigNameInput and ConfigNameInput ~= "" then
+            -- Create the config file directly to ensure it's saved correctly
+            local configPath = ConfigFolder .. "/" .. ConfigNameInput .. ".json"
+            if not isfile(configPath) then
+                writefile(configPath, "{}")  -- Create empty JSON file
+            end
+            
+            -- Use ConfigManager to save current settings
+            local cfg = ConfigManager:CreateConfig(ConfigNameInput)
+            cfg:Save()
+            
+            -- Refresh the dropdown with all configs
+            local allConfigs = GetConfigs()
+            if ConfigDropdown then 
+                ConfigDropdown:Refresh(allConfigs)
+                -- Select the newly created config
+                ConfigDropdown:SetValue(ConfigNameInput)
+                SelectedConfig = ConfigNameInput
+            end
+            
+            Window:Notify({Title = "Config", Content = "Created: " .. ConfigNameInput, Duration = 3})
+        else
+            Window:Notify({Title = "Error", Content = "Please enter a name first.", Duration = 3})
+        end
+    end
+})
+
+SettingsTab:Section({ Title = "Manage Configs" })
+
+ConfigDropdown = SettingsTab:Dropdown({
+    Title = "Select Config",
+    Values = GetConfigs(),
+    Value = nil,
+    Callback = function(val) SelectedConfig = val end
+})
+
+SettingsTab:Button({
+    Title = "Save to Selected",
+    Callback = function()
+        if SelectedConfig then
+            local cfg = ConfigManager:CreateConfig(SelectedConfig)
+            cfg:Save()
+            Window:Notify({Title = "Config", Content = "Saved: " .. SelectedConfig, Duration = 3})
+        else
+            Window:Notify({Title = "Error", Content = "Select a config first.", Duration = 3})
+        end
+    end
+})
+
+SettingsTab:Button({
+    Title = "Load Selected",
+    Callback = function()
+        if SelectedConfig then
+            local cfg = ConfigManager:CreateConfig(SelectedConfig)
+            cfg:Load()
+            Window:Notify({Title = "Config", Content = "Loaded: " .. SelectedConfig, Duration = 3})
+        else
+            Window:Notify({Title = "Error", Content = "Select a config first.", Duration = 3})
+        end
+    end
+})
+
+SettingsTab:Button({
+    Title = "Set as AutoLoad",
+    Callback = function()
+        if SelectedConfig then
+            writefile(ConfigFolder .. "/autoload.txt", SelectedConfig)
+            Window:Notify({Title = "Config", Content = "AutoLoad set to: " .. SelectedConfig, Duration = 3})
+        else
+            Window:Notify({Title = "Error", Content = "Select a config first.", Duration = 3})
+        end
+    end
+})
+
+-- DELETE BUTTON
+SettingsTab:Button({
+    Title = "Delete Selected",
+    Callback = function()
+        if not SelectedConfig then
+            Window:Notify({Title = "Error", Content = "Select a config to delete.", Duration = 3})
+            return
+        end
+
+        local configPath = ConfigFolder .. "/" .. SelectedConfig .. ".json"
+        local autoLoadPath = ConfigFolder .. "/autoload.txt"
+
+        -- Check if it's the auto-load config
+        local isAutoLoad = isfile(autoLoadPath) and readfile(autoLoadPath) == SelectedConfig
+
+        -- Attempt to delete the config file
+        local success, err = pcall(function()
+            if isfile(configPath) then
+                delfile(configPath)
+            else
+                error("Config file not found.")
+            end
+        end)
+
+        if success then
+            -- If it was the autoload config, delete the autoload marker file
+            if isAutoLoad then
+                pcall(delfile, autoLoadPath)
+            end
+
+            Window:Notify({Title = "Config", Content = "Deleted: " .. SelectedConfig, Duration = 3})
+            
+            -- Reset selection
+            SelectedConfig = nil
+
+            -- Small wait to allow the file system to update before refreshing UI
+            task.wait(0.1) 
+
+            -- Refresh the UI with the new list
+            if ConfigDropdown then
+                ConfigDropdown:Refresh(GetConfigs())
+                ConfigDropdown:SetValue(nil) -- Clear the selection in the dropdown
+            end
+        else
+            Window:Notify({Title = "Error", Content = "Failed to delete config: " .. tostring(err), Duration = 4})
+        end
+    end
+})
+
+SettingsTab:Button({
+    Title = "Refresh List",
+    Callback = function()
+        local allConfigs = GetConfigs()
+        if ConfigDropdown then 
+            ConfigDropdown:Refresh(allConfigs)
+        end
+        Window:Notify({Title = "Config", Content = "List refreshed", Duration = 2})
+    end
+})
+
+-- AutoLoad Logic
+task.spawn(function()
+    -- Ensure folder exists before reading
+    if not isfolder(ConfigFolder) then return end
+    
+    if isfile(ConfigFolder .. "/autoload.txt") then
+        local autoName = readfile(ConfigFolder .. "/autoload.txt")
+        if isfile(ConfigFolder .. "/" .. autoName .. ".json") then
+            -- Wait for UI init
+            task.wait(1) 
+            local cfg = ConfigManager:CreateConfig(autoName)
+            cfg:Load()
+            Window:Notify({Title = "AutoLoad", Content = "Loaded: " .. autoName, Duration = 5})
+        end
+    end
+end)
