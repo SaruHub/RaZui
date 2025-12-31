@@ -1,0 +1,30 @@
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+
+if game.PlaceId == 128451689942376 then
+    
+    WindUI:Notify({
+        Title = "Script Loaded",
+        Duration = 3,
+        Icon = "check",
+    })
+
+    loadstring(game:HttpGet("YOUR_SCRIPT_URL_HERE"))()
+
+elseif game.PlaceId == 70619325627859 then
+
+    WindUI:Notify({
+        Title = "Script Loaded",
+        Duration = 3,
+        Icon = "check",
+    })
+
+    loadstring(game:HttpGet("YOUR_SCRIPT_URL_HERE"))()
+
+else
+    WindUI:Notify({
+        Title = "Unsupported Game",
+        Content = "This script does not work here. Current ID: " .. game.PlaceId,
+        Duration = 5,
+        Icon = "alert-triangle", -- Changed icon to look like a warning
+    })
+end
