@@ -8,7 +8,7 @@ if game.PlaceId == 128451689942376 then
         Icon = "check",
     })
 
-    loadstring(game:HttpGet("YOUR_SCRIPT_URL_HERE"))()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/anurajsaru/RaZui/refs/heads/main/55"))()
 
 elseif game.PlaceId == 70619325627859 then
 
