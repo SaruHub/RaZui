@@ -39,7 +39,6 @@ local scriptFound = false
 
 for name, config in pairs(ScriptList) do
     if table.find(config.Ids, PlaceID) then
-        print("Loader: Found script for " .. name .. " (ID: " .. PlaceID .. ")")
 
         if config.Url then
             local success, err = pcall(function()
