@@ -28,7 +28,7 @@ elseif game.PlaceId == 100744519298647 then
     })
 
 elseif supportedPlaceIds[game.PlaceId] then
-    loadstring(game:HttpsGet("https://raw.githubusercontent.com/anurajsaru/RaZui/refs/heads/main/Final%20quest"))()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/anurajsaru/RaZui/refs/heads/main/Final%20quest"))()
 
 else
     local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
