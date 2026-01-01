@@ -1,8 +1,9 @@
-local multiPlaceIds = {
-    136683944064056,
-    127316980657672,
-    70768610276749,
-    113963744934619,
+-- Define the list of IDs that share the same script here
+local finalQuestIds = {
+    136683944064056, 
+    127316980657672, 
+    70768610276749, 
+    113963744934619, 
     81100481912247
 }
 
@@ -16,33 +17,34 @@ elseif game.PlaceId == 100744519298647 then
     local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 
     WindUI:Popup({
-    Title = "Join Raid",
-    Content = "This Script is only for Raid",
-    Buttons = {
-        {
-            Title = "Continue",
-            Callback = function() end,
-            Variant = "Primary",
+        Title = "Join Raid",
+        Content = "This Script is only for Raid",
+        Buttons = {
+            {
+                Title = "Continue",
+                Callback = function() end,
+                Variant = "Primary",
+            }
         }
-    }
     })
 
-elseif table.find(multiPlaceIds, game.PlaceId) then
+-- THIS IS THE CHANGED PART
+-- We check if the current game.PlaceId exists inside the 'finalQuestIds' table
+elseif table.find(finalQuestIds, game.PlaceId) then
     loadstring(game:HttpGet("https://raw.githubusercontent.com/anurajsaru/RaZui/refs/heads/main/Final%20quest"))()
-
 
 else
     local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 
     WindUI:Popup({
-    Title = "Game Not Supproted",
-    Content = "You are not in supported game",
-    Buttons = {
-        {
-            Title = "Continue",
-            Callback = function() end,
-            Variant = "Primary",
+        Title = "Game Not Supported",
+        Content = "You are not in supported game",
+        Buttons = {
+            {
+                Title = "Continue",
+                Callback = function() end,
+                Variant = "Primary",
+            }
         }
-    }
     })
 end
