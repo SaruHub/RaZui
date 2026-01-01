@@ -1,28 +1,35 @@
-if game.PlaceId == 128451689942376 then
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/anurajsaru/RaZui/refs/heads/main/55"))()
+local PlaceId = game.PlaceId
 
-elseif game.PlaceId == 70619325627859 then
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/anurajsaru/RaZui/refs/heads/main/55-2"))()
+local GameGroups = {
+    Jujutsu Zero = {
+        PlaceIds = {128451689942376},
+        Script = "https://raw.githubusercontent.com/anurajsaru/RaZui/refs/heads/main/55"
+    },
+    Jujutsu Zero Raid = {
+        PlaceIds = {128451689942376},
+        Script = "https://raw.githubusercontent.com/anurajsaru/RaZui/refs/heads/main/55-2"
+    },
+    
+    Anime Final Quest Raid = {
+        PlaceIds = {136683944064056, 127316980657672, 70768610276749, 113963744934619, 81100481912247},
+        Script = "https://raw.githubusercontent.com/anurajsaru/RaZui/refs/heads/main/Finalquest"
+    },
+}
 
-elseif game.PlaceId == 100744519298647 then
-    local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+local function LoadForPlace()
+    for name, data in pairs(GameGroups) do
+        for _, id in ipairs(data.PlaceIds) do
+            if id == PlaceId or id == "all" then
+                print("Loading: " .. name)
+                loadstring(game:HttpGet(data.Script))()
+                return true
+            end
+        end
+    end
+    return false
+end
 
-    WindUI:Popup({
-    Title = "Join Raid",
-    Content = "This Script is only for Raid",
-    Buttons = {
-        {
-            Title = "Continue",
-            Callback = function() end,
-            Variant = "Primary",
-        }
-    }
-    })
-
-elseif game.PlaceId == 136683944064056 or game.PlaceId == 127316980657672 or game.PlaceId == 70768610276749 or game.PlaceId == 113963744934619 or game.PlaceId == 81100481912247 then
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/anurajsaru/RaZui/refs/heads/main/Finalquest"))()
-
-else
+if not LoadForPlace() then
     local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 
     WindUI:Popup({
