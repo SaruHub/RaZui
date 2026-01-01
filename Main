@@ -1,4 +1,4 @@
--- Define the list of IDs that share the same script here
+-- Define the list of IDs that share the "Final Quest" script
 local finalQuestIds = {
     136683944064056, 
     127316980657672, 
@@ -28,10 +28,10 @@ elseif game.PlaceId == 100744519298647 then
         }
     })
 
--- THIS IS THE CHANGED PART
--- We check if the current game.PlaceId exists inside the 'finalQuestIds' table
+-- This handles the list of IDs defined at the top
 elseif table.find(finalQuestIds, game.PlaceId) then
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/anurajsaru/RaZui/refs/heads/main/Final%20quest"))()
+    -- FIXED URL: Removed 'refs/heads' and fixed 'HttpsGet' to 'HttpGet'
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/anurajsaru/RaZui/main/Final%20quest"))()
 
 else
     local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
