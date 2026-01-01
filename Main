@@ -1,9 +1,35 @@
+local multiPlaceIds = {
+    136683944064056,
+    127316980657672,
+    70768610276749,
+    113963744934619,
+    81100481912247
+}
+
 if game.PlaceId == 28451689942376 then
     loadstring(game:HttpGet("https://raw.githubusercontent.com/anurajsaru/RaZui/refs/heads/main/Main"))()
 
 elseif game.PlaceId == 70619325627859 then
     loadstring(game:HttpGet("https://raw.githubusercontent.com/anurajsaru/RaZui/refs/heads/main/55-2"))()
-    
+
+elseif game.PlaceId == 100744519298647 then
+    local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+
+    WindUI:Popup({
+    Title = "Join Raid",
+    Content = "This Script is only for Raid",
+    Buttons = {
+        {
+            Title = "Continue",
+            Callback = function() end,
+            Variant = "Primary",
+        }
+    }
+    })
+
+elseif table.find(multiPlaceIds, game.PlaceId) then
+    loadstring(game:HttpsGet("https://raw.githubusercontent.com/anurajsaru/RaZui/refs/heads/main/Final%20quest"))()
+
 else
     local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 
