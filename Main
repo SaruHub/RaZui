@@ -1,7 +1,6 @@
 local PlaceID = game.PlaceId
 
 local ScriptList = {
-
     ["Jujutsu Zero"] = {
         Ids = {128451689942376}, 
         Url = "https://raw.githubusercontent.com/anurajsaru/RaZui/refs/heads/main/55"
@@ -12,28 +11,50 @@ local ScriptList = {
         Url = "https://raw.githubusercontent.com/anurajsaru/RaZui/refs/heads/main/55-2"
     },
 
+    ["Anime Final Quest"] = {
+        Ids = {100744519298647},
+        Handler = function()
+            local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+            WindUI:Popup({
+                Title = "Join Raid",
+                Content = "This Script is only for Raid",
+                Buttons = {
+                    {
+                        Title = "Continue",
+                        Callback = function() end,
+                        Variant = "Primary",
+                    }
+                }
+            })
+        end
+    },
+
     ["Anime Final Quest Raid"] = {
         Ids = {136683944064056, 127316980657672, 70768610276749, 113963744934619, 81100481912247},
         Url = "https://raw.githubusercontent.com/anurajsaru/RaZui/refs/heads/main/Finalquest"
     }
-
 }
 
 local scriptFound = false
 
 for name, config in pairs(ScriptList) do
-
     if table.find(config.Ids, PlaceID) then
         print("Loader: Found script for " .. name .. " (ID: " .. PlaceID .. ")")
-        
-        local success, err = pcall(function()
-            loadstring(game:HttpGet(config.Url))()
-        end)
 
-        if not success then
-            warn("Loader: Failed to load script. Error: " .. err)
+        if config.Url then
+            local success, err = pcall(function()
+                loadstring(game:HttpGet(config.Url))()
+            end)
+            if not success then
+                warn("Loader: Failed to load script. Error: " .. err)
+            end
+        elseif config.Handler then
+            local success, err = pcall(config.Handler)
+            if not success then
+                warn("Loader: Failed to run handler. Error: " .. err)
+            end
         end
-        
+
         scriptFound = true
         break
     end
@@ -41,4 +62,4 @@ end
 
 if not scriptFound then
     warn("Loader: No script configured for Place ID: " .. PlaceID)
-end 
+end
