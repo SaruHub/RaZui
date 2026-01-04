@@ -30,7 +30,7 @@ local ScriptList = {
     },
 
     ["Anime Final Quest Raid"] = {
-        Ids = {136683944064056, 127316980657672, 70768610276749, 113963744934619, 81100481912247},
+        Ids = {136683944064056, 127316980657672, 70768610276749, 113963744934619, 81100481912247, 73019180051115, 95996380540192},
         Url = "https://raw.githubusercontent.com/anurajsaru/RaZui/refs/heads/main/Finalquest"
     }
 }
