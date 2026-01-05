@@ -12,6 +12,24 @@ local ScriptList = {
     },
 
     ["Anime Final Quest"] = {
+        Ids = {79798556893707},
+        Handler = function()
+            local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+            WindUI:Popup({
+                Title = "BRUH",
+                Content = "At least try to finish tutorial by your self",
+                Buttons = {
+                    {
+                        Title = "Continue",
+                        Callback = function() end,
+                        Variant = "Primary",
+                    }
+                }
+            })
+        end
+    },
+
+    ["Anime Final Quest"] = {
         Ids = {100744519298647},
         Handler = function()
             local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
