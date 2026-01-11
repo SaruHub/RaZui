@@ -3,12 +3,12 @@ local PlaceID = game.PlaceId
 local ScriptList = {
     ["Jujutsu Zero"] = {
         Ids = {128451689942376}, 
-        Url = "https://raw.githubusercontent.com/anurajsaru/RaZui/refs/heads/main/55"
+        Url = "https://raw.githubusercontent.com/SaruHub/RaZui/refs/heads/main/55"
     },
 
     ["Jujutsu Zero Raid"] = {
         Ids = {70619325627859},
-        Url = "https://raw.githubusercontent.com/anurajsaru/RaZui/refs/heads/main/55-2"
+        Url = "https://raw.githubusercontent.com/SaruHub/RaZui/refs/heads/main/55-2"
     },
 
     ["Anime Final Quest"] = {
@@ -49,7 +49,7 @@ local ScriptList = {
 
     ["Anime Final Quest Raid"] = {
         Ids = {136683944064056, 127316980657672, 70768610276749, 113963744934619, 81100481912247, 73019180051115, 95996380540192},
-        Url = "https://raw.githubusercontent.com/anurajsaru/RaZui/refs/heads/main/Finalquest"
+        Url = "https://raw.githubusercontent.com/SaruHub/RaZui/refs/heads/main/Finalquest"
     }
 }
 
