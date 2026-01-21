@@ -1,0 +1,83 @@
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+
+local Window = WindUI:CreateWindow({
+Title = "RaZui Hub",
+Folder = "MySuperHub",
+Size = UDim2.fromOffset(580, 460),
+MinSize = Vector2.new(560, 350),
+MaxSize = Vector2.new(850, 560),
+Transparent = true,
+Theme = "Dark",
+Resizable = true,
+SideBarWidth = 150,
+BackgroundImageTransparency = 0.42,
+HideSearchBar = true,
+ScrollBarEnabled = false,
+})
+
+Window:SetToggleKey(Enum.KeyCode.K)
+Window:EditOpenButton({
+Title = "Open UI",
+CornerRadius = UDim.new(0,16),
+StrokeThickness = 2,
+Color = ColorSequence.new(Color3.fromHex("FF0F7B"), Color3.fromHex("F89B29")),
+OnlyMobile = false,
+Enabled = true,
+Draggable = true,
+})
+
+local FarmTab = Window:Tab({Title = "Farm"})
+FarmTab:Select()
+
+local Button = Tab:Button({
+Title = "Button",
+Desc = "Test Button",
+Locked = false,
+Callback = function()
+-- ...
+end
+})
+
+local Toggle = Tab:Toggle({
+Title = "Toggle",
+Desc = "Toggle Description",
+Icon = "bird",
+Type = "Checkbox",
+Value = false, -- default value
+Callback = function(state)
+print("Toggle Activated" .. tostring(state))
+end
+})
+
+local Slider = Tab:Slider({
+Title = "Slider",
+Desc = "Slider Description",
+
+text
+
+-- To make float number supported, 
+-- make the Step a float number.
+-- example: Step = 0.1
+Step = 1,
+Value = {
+    Min = 20,
+    Max = 120,
+    Default = 70,
+},
+Callback = function(value)
+    print(value)
+end
+})
+
+local Dropdown = Tab:Dropdown({
+Title = "Dropdown (Multi)",
+Desc = "Dropdown Description",
+Values = { "Category A", "Category B", "Category C" },
+Value = { "Category A" },
+Multi = true,
+AllowNone = true,
+Callback = function(option)
+-- option is a table: { "Category A", "Category B" }
+print("Categories selected: " .. game:GetService("HttpService"):JSONEncode(option))
+end
+})
