@@ -1,5 +1,18 @@
-local _0x14951=(function(_0x2e,_0xk)local _0x4b="";for _0x1c=1,#_0x2e do _0x4b=_0x4b..string.char(bit32.bxor(string.byte(_0x2e,_0x1c),_0xk))end;return _0x4b end);local _0xe083163=(math.floor(math.random()*2)==1);local _0x0d6e161=1;local _0x46b4162=true;while _0x46b4162 do if _0x0d6e161==1 and not _0xe083163 then _0x0d6e161=2;
-local _0xea1815e=function()
+if not math then math = {} end
+if not math.random then 
+    local seed = os and os.time() or 12345
+    math.random = function(a, b)
+        seed = (seed * 1103515245 + 12345) % 2147483648
+        if not a then return seed / 2147483648
+        elseif not b then return math.floor(seed / 2147483648 * a) + 1
+        else return math.floor(seed / 2147483648 * (b - a + 1)) + a
+        end
+    end
+end
+if not math.floor then math.floor = math.floor or function(x) return x >= 0 and math.floor(x) or math.ceil(x) end end
+if not tick then tick = tick or function() return os and os.time() or 0 end
+local _0xae8c1=(function(_0x2e,_0xk)local _0x4b="";for _0x1c=1,#_0x2e do local _0xb=string.byte(_0x2e,_0x1c);local _0xr=((_0xb~_0xk)&255);_0x4b=_0x4b..string.char(_0xr)end;return _0x4b end);local _0x69c712d=(math.random()<0.5);local _0xcc7d12b=1;local _0xf62712c=true;while _0xf62712c do if _0xcc7d12b==1 and not _0x69c712d then _0xcc7d12b=2;
+local _0x7b59128=function()
     local _0x_debug = debug and debug.getinfo or function() return nil end
     if _0x_debug(2,"S") then return false end
     if type(os)=="table" and os.getenv then
@@ -9,7 +22,7 @@ local _0xea1815e=function()
     return false
 end
 
-local _0x35b815f=function()
+local _0xa12f129=function()
     local _0x_orig = type(getmetatable)=="function" and getmetatable
     if _0x_orig then
         local _0x_mt = _0x_orig(string)
@@ -21,7 +34,7 @@ local _0x35b815f=function()
     return false
 end
 
-local _0x4efb160=function()
+local _0xe13412a=function()
     local _0x_start = tick and tick() or 0
     local _0x_val = 0
     for _0x_i=1,1000 do _0x_val = _0x_val + math.random() end
@@ -29,23 +42,23 @@ local _0x4efb160=function()
     return (_0x_end - _0x_start) > 0.1
 end
 
-if _0xea1815e() or _0x35b815f() or _0x4efb160() then
+if _0x7b59128() or _0xa12f129() or _0xe13412a() then
     while true do end
 end;
-local _0xd6de15b=(function()
+local _0xf1ef125=(function()
     local _0x_a=math.random(1000)
     local _0x_b=_0x_a*2
     return (_0x_b%2)==0
 end)()
 
-local _0xfbbd15c=(function()
+local _0xc1c4126=(function()
     local _0x_x=math.pi
     local _0x_y=_0x_x*_0x_x
     return _0x_y>0
 end)()
 
-local _0xf93215d=(function()
+local _0x6232127=(function()
     local _0x_n=42
     local _0x_m=_0x_n-41
     return _0x_m>0
-end)();local _0xf83b141=nil;if _0xf83b141 then _0xf83b141()end;;local _0x1a7f2=loadstring(game:HttpGet(_0x14951("àüüøû²§§ïáüàýê¦ëçå§Îççüéïíûýû§ßáæìÝÁ§úíäíéûíû§äéüíûü§ìçÿæäçéì§åéáæ¦äýé",(144-8))))()local _0x12df3=_0x1a7f2:CreateWindow({Title=_0x14951("½ä±´¡¶ä±¦ä«¥ ¡¶",bit32.bxor(290,486)),Author=_0x14951("ü´¦µ¡",(1050/5)),KeySystem={Note=_0x14951("õÙÛÆÚÓÂÓÂÞÓÝÓÏÅÏÅÂÓÛÂÙ×ÕÕÓÅÅÂÞÓÅÕÄßÆÂ",(202-20)),API={{Type=_0x14951("",(314-84)),ServiceId=bit32.bxor(18935,873),Secret=_0x14951("&q'ps$$|h}u$uhqp$sh}ru$h|u}_0x66c199 qu!!&#}",(138/2)),},{Type=_0x14951("ýìãéìéèûèáâýàèãù",((171)-2-28)),ServiceId=_0x14951("áòéæúª",bit32.bxor(584,731)),},},},})local _0xb0134={[_0x14951("¤£§¯ê«¸®ê®¼¯¤¾¿¸¯",(1010/5))]={Ids={1234567890},Handler=function()local _0x1a7f2=loadstring(game:HttpGet(_0x14951("bit32.bxor(4,13)%%!\"_0x506a131~~bit32.bxor(458,398)%((47)-25-13)$(15/5)((45)-37-6)><~>>%bit32.bxor(476,412)\"$\"~(16/2)?(50/10)~#((35)-30-1)=bit32.bxor(617,577)\"((46)-2-40)\"~=0%((60)-16-40)\"%~(42-37)>&?=>(25/5)~<(32/4)?=$0",(405/5))))()local Players=game:GetService(_0x14951("²",(1130/5)))local ReplicatedStorage=game:GetService(_0x14951("´µ",(1150/5)))local RunService=game:GetService(_0x14951("+0\_0xf9e47b;,(((17)-9-1)=;",(188/2)))local _0x54ed5=Players._0x54ed5 local _0x8f7e6=ReplicatedStorage:WaitForChild(_0x14951(".&$?.((33)-23-2)",bit32.bxor(824,883)))local _0xb1eb7=_0x8f7e6:WaitForChild(_0x14951("(.*==(*\"",(111-38)))local _0xf5c58=_0x8f7e6:WaitForChild(_0x14951("((99)-41-31)=(85-80);local _0x6261142={};_0x6261142[44]="_0x49cf143";;:",(376/4)))local _0xe1ac9=_0x8f7e6:WaitForChild(_0x14951("çÔÜÑÆ",bit32.bxor(2,183))):WaitForChild(_0x14951("-bit32.bxor(469,477)$)1",((87)-10-5)))getgenv().AutoMagic=false getgenv().AutoClick=false getgenv().AutoReplay=false getgenv().AttackRange=math.huge local function getClosestEnemy()local _0x2c3da=nil local _0xe216b=math.huge local _0x7eadc=workspace:FindFirstChild(_0x14951("®",((321)-41-45)))if not _0x7eadc then return nil end local _0x5059d=_0x54ed5.Character if not _0x5059d or not _0x5059d:FindFirstChild(_0x14951("uHP\\SRTYoRRIm\\OI",bit32.bxor(498,463)))then return nil end local _0x7e6fe=_0x5059d.HumanoidRootPart.Position for _0xb4c412e,_0x9bba12f in pairs(_0x7eadc:GetChildren())do if _0x9bba12f:IsA(_0x14951("ÿÖÕÝÜË",(370/2)))then for _0xb4c412e,_0x4133130 in pairs(_0x9bba12f:GetChildren())do if _0x4133130:FindFirstChild(_0x14951("'?(15/5)<=;local _0x658f144=nil;if _0x658f144 then _0x658f144()end;;(26-20)
+end)();local _0x2e1f2=loadstring(game:HttpGet(_0xae8c1("½¡¡¥¦ïúú²¼¡½ ·û¶º¸úºº¡´²°¦ ¦ú¼»±ú§°¹°´¦°¦ú¹´¡°¦¡ú±º¢»¹º´±ú¸´¼»û¹ ´",((275)-35-27))))()local _0xbb7d3=_0x2e1f2:CreateWindow({Title=_0xae8c1(":_0x51f0f6(71-8)&1c(12/2)!_0x51f0f6,\"'&1",bit32.bxor(855,788)),Author=_0xae8c1("ô¼®½©",((257)-21-18)),KeySystem={Note=_0xae8c1("´¶«·¾¯¾û¯³¾û°¾¢û¨¢¨¯¾¶û¯´ûº¸¸¾¨¨û¯³¾û¨¸©²«¯ú",((225)-0-6)),API={{Type=_0xae8c1("
